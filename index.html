@@ -1844,14 +1844,19 @@ function setupReelAutoplay(){
 // New Reel
 window.previewReel = (input) => {
   G.nrVideoFile=input.files[0]; if(!G.nrVideoFile)return;
-  // Check size (max 50MB)
-  if(G.nrVideoFile.size > 50*1024*1024){
-    alert('حجم الفيديو كبير جداً! الحد الأقصى 50MB');
+  // Cloudinary يقبل حتى 100MB في الخطة المجانية
+  const sizeMB = G.nrVideoFile.size/1024/1024;
+  if(sizeMB > 100){
+    alert(`حجم الفيديو ${sizeMB.toFixed(0)}MB — الحد الأقصى 100MB\nجرب ضغط الفيديو أو اختر فيديو أقصر`);
     G.nrVideoFile=null; return;
   }
   const url=URL.createObjectURL(G.nrVideoFile);
   document.getElementById('nr-video-prev').src=url;
   document.getElementById('nr-video-wrap').style.display='block';
+  // عرض حجم الملف
+  const sizeEl=document.getElementById('nr-progress-size');
+  if(sizeEl) sizeEl.textContent=`حجم الفيديو: ${sizeMB.toFixed(1)} MB`;
+  document.getElementById('nr-progress-wrap').style.display='block';
 };
 
 window.clearReelVideo = () => {
@@ -2031,8 +2036,17 @@ function openChat(chatId, otherId, otherUser){
 }
 window.closeChatScreen=()=>{ document.getElementById('chat-screen').classList.remove('open'); if(G.unsubs.chat){G.unsubs.chat();G.unsubs.chat=null;} };
 
-window.openChatSettings=()=>{
-  const u=G._chatOtherUser||{};
+window.openChatSettings=async()=>{
+  // إذا لم تكن البيانات محفوظة، اجلبها من Firestore
+  let u=G._chatOtherUser||null;
+  if(!u && G.currentChatOtherUid){
+    try{
+      const snap=await getDoc(doc(db,'wb_users',G.currentChatOtherUid));
+      if(snap.exists()) u=snap.data();
+      G._chatOtherUser=u;
+    }catch(e){}
+  }
+  if(!u){alert('تعذر تحميل بيانات المستخدم');return;}
   document.getElementById('cs-av').innerHTML=u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(u.name?.[0]||'م');
   document.getElementById('cs-name').innerHTML=(u.name||'مستخدم')+vbadge(u.isVerified);
   document.getElementById('cs-username').textContent='@'+(u.username||'');
