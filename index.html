@@ -576,20 +576,66 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 <div id="chat-screen">
   <div class="chat-hdr">
     <button onclick="closeChatScreen()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#3d5236;padding:4px 8px"><i class="fas fa-arrow-right"></i></button>
-    <!-- اضغط على الصورة أو الاسم لفتح إعدادات المحادثة -->
     <div onclick="openChatSettings()" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;-webkit-tap-highlight-color:transparent">
       <div id="chat-other-av" style="width:40px;height:40px;border-radius:50%;background:#8aab7a;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0"></div>
       <div style="flex:1">
         <div id="chat-other-name" style="font-weight:800;font-size:.95rem;display:flex;align-items:center;gap:4px"></div>
         <div id="chat-other-status" style="font-size:.72rem;color:#6b7a5a"></div>
       </div>
-      <i class="fas fa-chevron-left" style="color:#c0c8b8;font-size:.78rem;margin-left:4px"></i>
     </div>
+    <button onclick="startCall('voice')" style="background:none;border:none;color:#5c7a4e;font-size:1.1rem;cursor:pointer;padding:6px 8px" title="مكالمة صوتية"><i class="fas fa-phone"></i></button>
+    <button onclick="startCall('video')" style="background:none;border:none;color:#5c7a4e;font-size:1.1rem;cursor:pointer;padding:6px 8px" title="مكالمة فيديو"><i class="fas fa-video"></i></button>
   </div>
   <div class="chat-msgs" id="chat-msgs"></div>
   <div class="chat-input-bar">
     <input class="chat-inp" id="chat-inp" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter')sendChatMsg()">
     <button class="chat-send" onclick="sendChatMsg()"><i class="fas fa-paper-plane"></i></button>
+  </div>
+</div>
+
+<!-- ══════ CALL SCREEN ══════ -->
+
+<div id="call-screen" style="position:fixed;inset:0;background:#1a1a2e;z-index:9000;display:none;flex-direction:column;font-family:'Cairo',sans-serif">
+  <!-- فيديو الطرف الآخر (خلفية) -->
+  <div id="call-remote-video" style="position:absolute;inset:0;background:#0d0d1a;z-index:1"></div>
+  <!-- فيديوي أنا (صغير) -->
+  <div id="call-local-video" style="position:absolute;top:16px;right:16px;width:100px;height:140px;border-radius:14px;overflow:hidden;background:#2a2a3e;z-index:3;border:2px solid rgba(255,255,255,.2)"></div>
+  <!-- معلومات المتصل -->
+  <div style="position:absolute;top:0;left:0;right:0;padding:60px 20px 20px;background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);z-index:4;text-align:center">
+    <div id="call-other-av-big" style="width:90px;height:90px;border-radius:50%;background:#5c7a4e;margin:0 auto 14px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;color:#fff;border:3px solid rgba(255,255,255,.3)"></div>
+    <div id="call-other-name-big" style="color:#fff;font-size:1.3rem;font-weight:900;margin-bottom:6px"></div>
+    <div id="call-status-text" style="color:rgba(255,255,255,.7);font-size:.88rem">جاري الاتصال...</div>
+    <div id="call-timer" style="color:#6a9b60;font-size:1rem;font-weight:700;margin-top:8px;display:none">00:00</div>
+  </div>
+  <!-- أزرار التحكم -->
+  <div style="position:absolute;bottom:50px;left:0;right:0;display:flex;justify-content:center;gap:24px;z-index:4">
+    <button id="call-mute-btn" onclick="toggleCallMute()" style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px">
+      <i class="fas fa-microphone"></i>
+      <span style="font-size:.55rem">صوت</span>
+    </button>
+    <button onclick="endCall()" style="width:72px;height:72px;border-radius:50%;background:#e74c3c;border:none;color:#fff;font-size:1.5rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(231,76,60,.5)">
+      <i class="fas fa-phone-slash"></i>
+    </button>
+    <button id="call-cam-btn" onclick="toggleCallCamera()" style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px">
+      <i class="fas fa-video"></i>
+      <span style="font-size:.55rem">كاميرا</span>
+    </button>
+  </div>
+</div>
+
+<!-- إشعار مكالمة واردة -->
+
+<div id="incoming-call" style="position:fixed;top:0;left:0;right:0;z-index:9100;background:linear-gradient(135deg,#1a1a2e,#2d2d4e);padding:20px 16px;display:none;border-bottom-left-radius:20px;border-bottom-right-radius:20px;box-shadow:0 8px 30px rgba(0,0,0,.5)">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div id="inc-caller-av" style="width:56px;height:56px;border-radius:50%;background:#5c7a4e;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:#fff;overflow:hidden"></div>
+    <div style="flex:1">
+      <div id="inc-caller-name" style="color:#fff;font-weight:800;font-size:1rem"></div>
+      <div id="inc-call-type" style="color:rgba(255,255,255,.6);font-size:.8rem;margin-top:2px"></div>
+    </div>
+    <div style="display:flex;gap:12px">
+      <button onclick="rejectIncomingCall()" style="width:52px;height:52px;border-radius:50%;background:#e74c3c;border:none;color:#fff;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 12px rgba(231,76,60,.4)"><i class="fas fa-phone-slash"></i></button>
+      <button onclick="acceptIncomingCall()" style="width:52px;height:52px;border-radius:50%;background:#2ecc71;border:none;color:#fff;font-size:1.2rem;cursor:pointer;box-shadow:0 4px 12px rgba(46,204,113,.4)"><i class="fas fa-phone"></i></button>
+    </div>
   </div>
 </div>
 
@@ -838,6 +884,8 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 
 <!-- ══════ FIREBASE + APP LOGIC ══════ -->
 
+<script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+
 <script type="module">
 import { initializeApp }            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile }
@@ -963,6 +1011,7 @@ onAuthStateChanged(auth, async user => {
       loadExplore();
       listenNotifs();
       listenMsgBadge();
+      listenIncomingCalls();
     } catch(e) {
       console.error('خطأ في تحميل بيانات المستخدم:', e);
       // حتى لو فشل Firestore، افتح التطبيق ببيانات مؤقتة
@@ -3287,6 +3336,199 @@ function timeAgo(date){
   if(s<60)return 'الآن';if(s<3600)return Math.floor(s/60)+' د';
   if(s<86400)return Math.floor(s/3600)+' س';return Math.floor(s/86400)+' يوم';
 }
+
+// ══════════════════════════════
+// CALL SYSTEM — ZegoCloud
+// ══════════════════════════════
+const ZEGO_APP_ID   = 937924684;
+const ZEGO_APP_SIGN = '7f1da0ee48d5e5753cf7cac828cb6c7c89a38b3a06d8735caf38d79c55dbf981';
+
+const CALL = {
+  zp: null,
+  type: 'voice',      // 'voice' | 'video'
+  roomId: null,
+  isMuted: false,
+  isCamOff: false,
+  timer: null,
+  seconds: 0,
+  isIncoming: false,
+};
+
+// توليد roomId فريد لكل محادثة
+function genRoomId(uid1, uid2){ return 'room_'+[uid1,uid2].sort().join('_'); }
+
+// بدء مكالمة
+window.startCall=async(type)=>{
+  if(!G.user||!G.currentChatOtherUid){ alert('افتح محادثة أولاً'); return; }
+  CALL.type=type;
+  CALL.roomId=genRoomId(G.user.uid, G.currentChatOtherUid);
+
+  // أرسل إشعار المكالمة للطرف الآخر عبر Firestore
+  await setDoc(doc(db,'wb_calls',CALL.roomId),{
+    callerId:G.user.uid,
+    callerName:G.userData?.name||'',
+    callerAvatar:G.userData?.avatar||'',
+    calleeId:G.currentChatOtherUid,
+    type, status:'ringing',
+    roomId:CALL.roomId,
+    createdAt:serverTimestamp()
+  });
+
+  openCallScreen(type, false);
+};
+
+function openCallScreen(type, isIncoming){
+  const u=G._chatOtherUser||{};
+  const screen=document.getElementById('call-screen');
+  screen.style.display='flex';
+
+  // معلومات المتصل
+  document.getElementById('call-other-av-big').innerHTML=u.avatar
+    ?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`
+    :(u.name?.[0]||'م');
+  document.getElementById('call-other-name-big').textContent=u.name||'مكالمة';
+  document.getElementById('call-status-text').textContent=isIncoming?'مكالمة واردة...':'جاري الاتصال...';
+  document.getElementById('call-timer').style.display='none';
+
+  // إخفاء/إظهار زر الكاميرا
+  document.getElementById('call-cam-btn').style.display=type==='video'?'flex':'flex';
+  if(type==='voice'){
+    document.getElementById('call-remote-video').style.background='#1a1a2e';
+    document.getElementById('call-local-video').style.display='none';
+  }
+
+  // تهيئة ZegoCloud
+  initZego(type, isIncoming);
+}
+
+async function initZego(type, isIncoming){
+  try{
+    const { ZegoUIKitPrebuilt } = window;
+    if(!ZegoUIKitPrebuilt){ console.error('ZegoCloud SDK not loaded'); return; }
+
+    const userId = G.user.uid;
+    const userName = G.userData?.name||'مستخدم';
+    const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+      ZEGO_APP_ID, ZEGO_APP_SIGN, CALL.roomId, userId, userName
+    );
+
+    CALL.zp = ZegoUIKitPrebuilt.create(kitToken);
+
+    const config = type==='video' ? {
+      container: document.getElementById('call-remote-video'),
+      scenario:{ mode: ZegoUIKitPrebuilt.VideoConference },
+      showPreJoinView: false,
+      showLeaveRoomConfirmDialog: false,
+      turnOnCameraWhenJoining: true,
+      turnOnMicrophoneWhenJoining: true,
+      showRoomDetailsButton: false,
+      showTextChat: false,
+      showUserList: false,
+      maxUsers: 2,
+      layout: 'Auto',
+      showLayoutButton: false,
+      onLeaveRoom: ()=>endCall(),
+    } : {
+      container: document.getElementById('call-remote-video'),
+      scenario:{ mode: ZegoUIKitPrebuilt.OneONoneCall },
+      showPreJoinView: false,
+      showLeaveRoomConfirmDialog: false,
+      turnOnCameraWhenJoining: false,
+      turnOnMicrophoneWhenJoining: true,
+      showRoomDetailsButton: false,
+      showTextChat: false,
+      showUserList: false,
+      maxUsers: 2,
+      onLeaveRoom: ()=>endCall(),
+    };
+
+    CALL.zp.joinRoom(config);
+
+    // مؤقت المكالمة
+    CALL.seconds=0;
+    clearInterval(CALL.timer);
+    CALL.timer=setInterval(()=>{
+      CALL.seconds++;
+      const m=String(Math.floor(CALL.seconds/60)).padStart(2,'0');
+      const s=String(CALL.seconds%60).padStart(2,'0');
+      const timer=document.getElementById('call-timer');
+      if(timer){ timer.style.display='block'; timer.textContent=`${m}:${s}`; }
+      document.getElementById('call-status-text').textContent='متصل';
+    },1000);
+
+  }catch(e){ console.error('Zego error:',e); endCall(); }
+}
+
+window.endCall=async()=>{
+  clearInterval(CALL.timer);
+  try{ CALL.zp?.destroy?.(); }catch(e){}
+  CALL.zp=null;
+  document.getElementById('call-screen').style.display='none';
+  document.getElementById('call-remote-video').innerHTML='';
+  document.getElementById('call-local-video').innerHTML='';
+  // حذف سجل المكالمة
+  if(CALL.roomId) await deleteDoc(doc(db,'wb_calls',CALL.roomId)).catch(()=>{});
+  CALL.roomId=null;
+};
+
+window.toggleCallMute=()=>{
+  CALL.isMuted=!CALL.isMuted;
+  const btn=document.getElementById('call-mute-btn');
+  btn.style.background=CALL.isMuted?'rgba(231,76,60,.4)':'rgba(255,255,255,.15)';
+  btn.querySelector('i').className=CALL.isMuted?'fas fa-microphone-slash':'fas fa-microphone';
+};
+
+window.toggleCallCamera=()=>{
+  CALL.isCamOff=!CALL.isCamOff;
+  const btn=document.getElementById('call-cam-btn');
+  btn.style.background=CALL.isCamOff?'rgba(231,76,60,.4)':'rgba(255,255,255,.15)';
+  btn.querySelector('i').className=CALL.isCamOff?'fas fa-video-slash':'fas fa-video';
+};
+
+// الاستماع للمكالمات الواردة
+function listenIncomingCalls(){
+  if(!G.user)return;
+  if(G.unsubs.calls) G.unsubs.calls();
+  const q=query(collection(db,'wb_calls'),where('calleeId','==',G.user.uid),where('status','==','ringing'));
+  G.unsubs.calls=onSnapshot(q,snap=>{
+    if(snap.empty){
+      document.getElementById('incoming-call').style.display='none';
+      return;
+    }
+    snap.forEach(d=>{
+      const call={id:d.id,...d.data()};
+      // تجاهل المكالمات القديمة (أكثر من 30 ثانية)
+      const age=(Date.now()-(call.createdAt?.seconds||0)*1000);
+      if(age>30000) return;
+
+      CALL.roomId=call.roomId;
+      CALL.type=call.type;
+
+      document.getElementById('inc-caller-av').innerHTML=call.callerAvatar
+        ?`<img src="${call.callerAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        :(call.callerName?.[0]||'م');
+      document.getElementById('inc-caller-name').textContent=call.callerName||'مجهول';
+      document.getElementById('inc-call-type').textContent=call.type==='video'?'📹 مكالمة فيديو':'📞 مكالمة صوتية';
+      document.getElementById('incoming-call').style.display='block';
+
+      // بيانات المتصل للشاشة
+      G._chatOtherUser={name:call.callerName,avatar:call.callerAvatar,isVerified:false};
+      G.currentChatOtherUid=call.callerId;
+    });
+  });
+}
+
+window.acceptIncomingCall=async()=>{
+  document.getElementById('incoming-call').style.display='none';
+  await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'accepted'});
+  openCallScreen(CALL.type, true);
+};
+
+window.rejectIncomingCall=async()=>{
+  document.getElementById('incoming-call').style.display='none';
+  if(CALL.roomId) await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'rejected'}).catch(()=>{});
+  CALL.roomId=null;
+};
 
 // Close menus on click outside
 document.addEventListener('click',()=>document.querySelectorAll('.pmenu-dd').forEach(d=>d.style.display='none'));
