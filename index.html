@@ -2509,28 +2509,44 @@ window.deleteMyAccount=async()=>{
 window.openPubProfile=async(uid)=>{
   if(!uid||uid===G.user?.uid){goPage('profile-page');return;}
   G.pubProfileUid=uid;
-  const snap=await getDoc(doc(db,'wb_users',uid)); if(!snap.exists())return;
-  const u=snap.data();
-  document.getElementById('pub-name').innerHTML=u.name+vbadge(u.isVerified,'lg');
-  document.getElementById('pub-handle').textContent='@'+(u.username||'—');
-  document.getElementById('pub-bio-t').textContent=u.bio||'';
-  document.getElementById('pub-posts-n').textContent=u.posts||0;
-  document.getElementById('pub-followers-n').textContent=u.followers||0;
-  document.getElementById('pub-av').innerHTML=u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م');
-  // Check follow
-  const fSnap=await getDoc(doc(db,'wb_follows',`${G.user.uid}_${uid}`));
-  const isFollowing=fSnap.exists();
-  const fbtn=document.getElementById('pub-follow-btn');
-  fbtn.className='follow-btn '+(isFollowing?'following':'not-following');
-  fbtn.textContent=isFollowing?'إلغاء المتابعة':'متابعة';
-  // Posts
-  const list=document.getElementById('pub-posts-list');
-  list.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
-  const pSnap=await getDocs(query(collection(db,'wb_posts'),where('authorId','==',uid),orderBy('createdAt','desc')));
-  list.innerHTML='';
-  if(pSnap.empty){list.innerHTML='<div class="empty"><i class="fas fa-camera"></i><p>لا توجد منشورات</p></div>';openOverlay('pub-profile-overlay');return;}
-  pSnap.forEach(d=>list.appendChild(buildPostCard({id:d.id,...d.data()})));
+
+  // افتح الـ overlay فوراً ببيانات بسيطة
   openOverlay('pub-profile-overlay');
+  document.getElementById('pub-name').innerHTML='...';
+  document.getElementById('pub-handle').textContent='';
+  document.getElementById('pub-bio-t').textContent='';
+  document.getElementById('pub-posts-n').textContent='0';
+  document.getElementById('pub-followers-n').textContent='0';
+  document.getElementById('pub-av').innerHTML='م';
+  document.getElementById('pub-posts-list').innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
+
+  try{
+    const snap=await getDoc(doc(db,'wb_users',uid));
+    if(!snap.exists())return;
+    const u=snap.data();
+    document.getElementById('pub-name').innerHTML=(u.name||'مستخدم')+vbadge(u.isVerified,'lg');
+    document.getElementById('pub-handle').textContent='@'+(u.username||'—');
+    document.getElementById('pub-bio-t').textContent=u.bio||'';
+    document.getElementById('pub-posts-n').textContent=u.posts||0;
+    document.getElementById('pub-followers-n').textContent=u.followers||0;
+    document.getElementById('pub-av').innerHTML=u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م');
+    // حالة المتابعة
+    const fSnap=await getDoc(doc(db,'wb_follows',`${G.user.uid}_${uid}`));
+    const isFollowing=fSnap.exists();
+    const fbtn=document.getElementById('pub-follow-btn');
+    fbtn.className='follow-btn '+(isFollowing?'following':'not-following');
+    fbtn.textContent=isFollowing?'إلغاء المتابعة':'متابعة';
+    // المنشورات بدون orderBy
+    const list=document.getElementById('pub-posts-list');
+    const pSnap=await getDocs(query(collection(db,'wb_posts'),where('authorId','==',uid)));
+    const posts=[]; pSnap.forEach(d=>posts.push({id:d.id,...d.data()}));
+    posts.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    list.innerHTML='';
+    if(!posts.length){list.innerHTML='<div class="empty"><i class="fas fa-camera"></i><p>لا توجد منشورات</p></div>';return;}
+    posts.forEach(p=>list.appendChild(buildPostCard({id:p.id,...p})));
+  }catch(e){
+    document.getElementById('pub-posts-list').innerHTML=`<div class="empty"><p>خطأ: ${e.message}</p></div>`;
+  }
 };
 
 window.toggleFollowPub=async()=>{
