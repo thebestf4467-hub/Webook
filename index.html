@@ -14,7 +14,7 @@ body.dark{background:#0f1410;color:#f0ede8;}
 
 /* ── Auth ── */
 #auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#3d5236,#5c7a4e,#8aab7a);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;padding:30px 24px;transition:opacity .4s,transform .4s;}
-#auth-screen.hidden{opacity:0;pointer-events:none;transform:scale(1.04);}
+#auth-screen.hidden{opacity:0;pointer-events:none;transform:scale(1.04);visibility:hidden;}
 .auth-logo{font-size:3rem;font-weight:900;color:#fff;margin-bottom:6px;letter-spacing:-1px;}
 .auth-logo span{color:#d4c9a8;}
 .auth-tagline{color:rgba(255,255,255,.75);font-size:.85rem;margin-bottom:40px;}
@@ -173,16 +173,50 @@ body.dark #chat-screen{background:#0f1410;}
 .chat-hdr{background:rgba(245,240,232,.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(92,122,78,.15);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
 body.dark .chat-hdr{background:rgba(15,20,16,.95);border-color:rgba(92,122,78,.2);}
 .chat-msgs{flex:1;overflow-y:auto;padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px;}
-.chat-bubble{max-width:75%;padding:10px 14px;border-radius:18px;font-size:.88rem;line-height:1.5;}
-.chat-bubble.me{background:#5c7a4e;color:#fff;border-radius:18px 18px 4px 18px;align-self:flex-start;}
-.chat-bubble.them{background:#fff;color:#2c3a1e;border-radius:18px 18px 18px 4px;align-self:flex-end;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.chat-bubble{max-width:72%;padding:10px 14px;border-radius:18px;font-size:.88rem;line-height:1.5;word-break:break-word;}
+/* me = أنا المرسل — يمين + أخضر */
+.chat-bubble.me{background:#5c7a4e;color:#fff;border-radius:18px 4px 18px 18px;align-self:flex-end;}
+/* them = الطرف الآخر — يسار + أبيض */
+.chat-bubble.them{background:#fff;color:#2c3a1e;border-radius:4px 18px 18px 18px;align-self:flex-start;box-shadow:0 1px 4px rgba(0,0,0,.08);}
 body.dark .chat-bubble.them{background:#1e2a1a;color:#f0ede8;}
+/* صف الرسالة الكاملة مع الصورة */
+.chat-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:4px;}
+.chat-row.me{flex-direction:row-reverse;}
+.chat-row.them{flex-direction:row;}
+/* صورة المرسل */
+.chat-msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;overflow:hidden;background:#8aab7a;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.75rem;border:1.5px solid rgba(92,122,78,.2);}
+.chat-msg-av img{width:100%;height:100%;object-fit:cover;}
+/* وقت الرسالة */
+.chat-time{font-size:.6rem;opacity:.55;margin-top:4px;}
+.chat-bubble.me .chat-time{text-align:left;}
+.chat-bubble.them .chat-time{text-align:right;}
 .chat-time{font-size:.6rem;opacity:.6;margin-top:3px;}
+/* ── Friends ── */
+.friend-req-card{background:#faf7f0;border-radius:16px;padding:14px 16px;margin-bottom:10px;border:1px solid rgba(92,122,78,.12);box-shadow:0 2px 8px rgba(60,80,40,.06);}
+body.dark .friend-req-card{background:#161d12;border-color:rgba(92,122,78,.2);}
+.friend-req-card .fav{width:50px;height:50px;border-radius:50%;background:#8aab7a;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1.1rem;}
+.friend-req-card .fav img{width:100%;height:100%;object-fit:cover;}
+.friend-actions{display:flex;gap:8px;margin-top:10px;}
+.btn-accept{flex:1;padding:9px;background:#5c7a4e;color:#fff;border:none;border-radius:10px;font-family:‘Cairo’,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;}
+.btn-reject{flex:1;padding:9px;background:rgba(231,76,60,.1);color:#e74c3c;border:1px solid rgba(231,76,60,.25);border-radius:10px;font-family:‘Cairo’,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;}
+.friend-search-tabs{display:flex;gap:4px;padding:4px;background:rgba(92,122,78,.08);border-radius:14px;margin-bottom:14px;}
+.fst-btn{flex:1;padding:8px 4px;border:none;background:transparent;border-radius:10px;font-family:‘Cairo’,sans-serif;font-size:.78rem;font-weight:700;color:#6b7a5a;cursor:pointer;transition:all .2s;}
+.fst-btn.active{background:#5c7a4e;color:#fff;}
+/* رؤية الرسالة */
+.read-receipt{font-size:.58rem;color:rgba(255,255,255,.5);margin-top:2px;display:flex;align-items:center;gap:3px;}
+.read-receipt.seen{color:#a8d8a8;}
+.read-receipt i{font-size:.65rem;}
+/* حالة الدردشة — قبول/رفض */
+.chat-request-bar{background:#faf7f0;border-top:1px solid rgba(92,122,78,.15);padding:14px 16px;text-align:center;}
+body.dark .chat-request-bar{background:#161d12;border-color:rgba(92,122,78,.2);}
+
 .chat-input-bar{background:#faf7f0;border-top:1px solid rgba(92,122,78,.15);padding:10px 14px;display:flex;gap:10px;flex-shrink:0;}
 body.dark .chat-input-bar{background:#161d12;border-color:rgba(92,122,78,.2);}
 .chat-inp{flex:1;padding:11px 14px;border:1.5px solid rgba(92,122,78,.15);border-radius:24px;background:#f5f0e8;font-family:‘Cairo’,sans-serif;font-size:.88rem;outline:none;}
 body.dark .chat-inp{background:#1e2a1a;color:#f0ede8;border-color:rgba(92,122,78,.25);}
 .chat-send{width:44px;height:44px;border-radius:50%;background:#5c7a4e;color:#fff;border:none;font-size:1rem;cursor:pointer;flex-shrink:0;}
+body.dark #chat-img-preview-bar{background:#161d12;border-color:rgba(92,122,78,.2);}
+.chat-bubble img.chat-img{max-width:220px;border-radius:12px;display:block;cursor:pointer;margin-top:6px;}
 
 /* ── Notifications ── */
 .notif-item{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid rgba(92,122,78,.12);cursor:pointer;transition:background .15s;}
@@ -340,15 +374,23 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 <!-- ══════ HEADER ══════ -->
 
 <header id="main-hdr" style="display:none">
-  <div class="logo" ondblclick="checkAdmin()">W<span>e</span>book</div>
-  <div style="display:flex;gap:8px;align-items:center">
+  <!-- يمين: الرسائل -->
+  <div style="display:flex;gap:8px;align-items:center;min-width:80px">
     <button class="hbtn" id="admin-hbtn" style="display:none" onclick="openAdmin()"><i class="fas fa-shield-alt" style="color:#e74c3c"></i></button>
-    <button class="hbtn" onclick="goPage('search-page')"><i class="fas fa-search"></i></button>
+    <button class="hbtn" onclick="goPage('messages-page')" style="position:relative">
+      <i class="fas fa-comment-dots"></i>
+      <div class="badge" id="msg-badge-hdr" style="display:none">0</div>
+    </button>
+  </div>
+  <!-- وسط: اسم الموقع -->
+  <div class="logo" style="position:absolute;left:50%;transform:translateX(-50%)" ondblclick="checkAdmin()">W<span>e</span>book</div>
+  <!-- يسار: الإشعارات + الوضع الداكن -->
+  <div style="display:flex;gap:8px;align-items:center;min-width:80px;justify-content:flex-end;margin-right:auto">
+    <button class="hbtn" id="dark-btn" onclick="toggleDark()"><i class="fas fa-moon"></i></button>
     <button class="hbtn" onclick="goPage('notif-page')" style="position:relative">
       <i class="fas fa-bell"></i>
       <div class="badge" id="notif-badge" style="display:none">0</div>
     </button>
-    <button class="hbtn" onclick="toggleDark()" id="dark-btn"><i class="fas fa-moon"></i></button>
   </div>
 </header>
 
@@ -376,9 +418,19 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 </div>
 
 <div id="explore-page" class="page">
-  <div style="padding:14px 16px">
-    <div style="font-weight:800;font-size:.95rem;margin-bottom:12px">🔥 الأكثر تداولاً</div>
-    <div id="tags-wrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+  <!-- حقل البحث داخل اكتشف -->
+  <div style="padding:14px 16px 10px">
+    <div class="search-inp-wrap" style="margin-bottom:14px">
+      <i class="fas fa-search"></i>
+      <input class="search-inp" id="search-inp" placeholder="ابحث عن أشخاص أو منشورات أو #هاشتاق..." oninput="doSearch(this.value)" style="background:#faf7f0">
+    </div>
+    <!-- نتائج البحث — تظهر فقط عند الكتابة -->
+    <div id="search-res" style="display:none;margin-bottom:12px"></div>
+    <!-- الأكثر تداولاً — يختفي عند البحث -->
+    <div id="explore-trending">
+      <div style="font-weight:800;font-size:.95rem;margin-bottom:12px">🔥 الأكثر تداولاً</div>
+      <div id="tags-wrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+    </div>
   </div>
   <div class="explore-grid" id="explore-grid"></div>
 </div>
@@ -423,23 +475,47 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
   <div id="prof-empty" class="empty" style="display:none"><i class="fas fa-camera"></i><p>لا توجد منشورات</p></div>
 </div>
 
-<div id="search-page" class="page">
-  <div class="search-wrap">
-    <div class="search-inp-wrap">
-      <i class="fas fa-search"></i>
-      <input class="search-inp" id="search-inp" placeholder="ابحث عن أشخاص أو منشورات..." oninput="doSearch(this.value)">
+<!-- Friends Page -->
+
+<div id="friends-page" class="page">
+  <div style="padding:14px 16px">
+    <!-- Search bar -->
+    <div style="position:relative;margin-bottom:12px">
+      <i class="fas fa-search" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#5c7a4e;"></i>
+      <input class="search-inp" id="friends-search-inp" placeholder="ابحث بالاسم أو @اليوزر أو البريد..." oninput="friendsSearch(this.value)" style="padding-right:42px;">
+    </div>
+    <!-- Tabs -->
+    <div class="friend-search-tabs">
+      <button class="fst-btn active" id="fst-find" onclick="friendsTab('find')"><i class="fas fa-search"></i> بحث</button>
+      <button class="fst-btn" id="fst-requests" onclick="friendsTab('requests')"><i class="fas fa-user-clock"></i> طلبات <span id="freq-count" style="background:#e74c3c;color:#fff;border-radius:999px;padding:1px 6px;font-size:.65rem;margin-right:2px;display:none">0</span></button>
+      <button class="fst-btn" id="fst-friends" onclick="friendsTab('friends')"><i class="fas fa-user-friends"></i> أصدقائي</button>
+    </div>
+    <!-- Content -->
+    <div id="friends-tab-content">
+      <div class="empty"><i class="fas fa-user-friends"></i><p>ابحث عن أصدقاء</p></div>
     </div>
   </div>
-  <div id="search-res"><div class="empty"><i class="fas fa-search"></i><p>ابحث عن أشخاص أو منشورات</p></div></div>
 </div>
 
 <div id="settings-page" class="page" style="padding:16px">
   <div style="font-weight:900;font-size:1.1rem;margin-bottom:18px">الإعدادات</div>
   <div class="settings-section">
     <div class="settings-label">المظهر</div>
-    <button class="settings-item" onclick="setTheme('light')" id="th-light"><i class="fas fa-sun"></i> فاتح</button>
-    <button class="settings-item" onclick="setTheme('dark')" id="th-dark"><i class="fas fa-moon"></i> داكن</button>
-    <button class="settings-item" onclick="setTheme('auto')" id="th-auto"><i class="fas fa-adjust"></i> تلقائي</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <i class="fas fa-moon" style="color:#5c7a4e;font-size:1rem"></i>
+        <div>
+          <div style="font-weight:700;font-size:.9rem">الوضع الداكن</div>
+          <div style="font-size:.72rem;color:#6b7a5a" id="theme-label-txt">وضع فاتح</div>
+        </div>
+      </div>
+      <button class="toggle" id="dark-toggle-settings" onclick="toggleDarkFromSettings()"></button>
+    </div>
+    <div style="display:flex;gap:8px;padding:4px 12px 8px">
+      <button class="settings-item" onclick="setTheme('light')" id="th-light" style="flex:1;justify-content:center;font-size:.78rem"><i class="fas fa-sun"></i> فاتح</button>
+      <button class="settings-item" onclick="setTheme('dark')" id="th-dark" style="flex:1;justify-content:center;font-size:.78rem"><i class="fas fa-moon"></i> داكن</button>
+      <button class="settings-item" onclick="setTheme('auto')" id="th-auto" style="flex:1;justify-content:center;font-size:.78rem"><i class="fas fa-adjust"></i> تلقائي</button>
+    </div>
   </div>
   <div class="settings-section">
     <div class="settings-label">الخصوصية</div>
@@ -472,7 +548,13 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
     <i class="fas fa-comment-dots"></i><span>رسائل</span>
     <div class="badge" id="msg-badge" style="display:none">0</div>
   </button>
-  <button class="bn" id="bn-profile" onclick="goPage('profile-page')"><i class="fas fa-user"></i><span>حسابي</span></button>
+
+<button class="bn" id="bn-friends" onclick="goPage('friends-page')"><i class="fas fa-user-plus"></i><span>أصدقاء</span>
+
+<div class="badge" id="friends-badge" style="display:none">0</div>
+</button>
+<button class="bn" id="bn-profile" onclick="goPage('profile-page')"><i class="fas fa-user"></i><span>حسابي</span></button>
+
 </nav>
 
 <!-- زر نشر ريل عائم -->
@@ -483,14 +565,33 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 <div id="chat-screen">
   <div class="chat-hdr">
     <button onclick="closeChatScreen()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#3d5236"><i class="fas fa-arrow-right"></i></button>
-    <div id="chat-other-av" style="width:38px;height:38px;border-radius:50%;background:#8aab7a;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0"></div>
-    <div style="flex:1">
+    <!-- صورة + اسم قابل للنقر للدخول للملف الشخصي -->
+    <div id="chat-other-av" onclick="openPubProfile(G.currentChatOtherUid)" style="width:38px;height:38px;border-radius:50%;background:#8aab7a;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;cursor:pointer"></div>
+    <div style="flex:1;cursor:pointer" onclick="openPubProfile(G.currentChatOtherUid)">
       <div id="chat-other-name" style="font-weight:800;font-size:.95rem"></div>
-      <div id="chat-other-status" style="font-size:.72rem;color:#6b7a5a"></div>
+      <div id="chat-other-status" style="font-size:.72rem;color:#5c7a4e">اضغط لعرض الملف الشخصي</div>
     </div>
   </div>
   <div class="chat-msgs" id="chat-msgs"></div>
-  <div class="chat-input-bar">
+  <!-- شريط قبول/رفض الدردشة -->
+  <div class="chat-request-bar" id="chat-request-bar" style="display:none">
+    <div style="font-size:.85rem;font-weight:700;margin-bottom:10px">📩 يريد هذا الشخص مراسلتك</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-accept" onclick="acceptChatRequest()">✅ قبول</button>
+      <button class="btn-reject" onclick="rejectChatRequest()">❌ رفض</button>
+    </div>
+  </div>
+  <!-- معاينة الصورة قبل الإرسال -->
+  <div id="chat-img-preview-bar" style="display:none;background:#faf7f0;border-top:1px solid rgba(92,122,78,.15);padding:8px 14px;gap:8px;align-items:center;flex-shrink:0">
+    <div style="position:relative;display:inline-block">
+      <img id="chat-img-preview" style="height:70px;border-radius:10px;object-fit:cover;max-width:120px">
+      <button onclick="clearChatImg()" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:#e74c3c;color:#fff;border:none;cursor:pointer;font-size:.65rem;display:flex;align-items:center;justify-content:center"><i class="fas fa-times"></i></button>
+    </div>
+    <button onclick="sendChatMsg()" style="flex:1;padding:10px;background:#5c7a4e;color:#fff;border:none;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;font-size:.88rem">إرسال الصورة <i class="fas fa-paper-plane"></i></button>
+  </div>
+  <div class="chat-input-bar" id="chat-input-bar">
+    <input type="file" id="chat-img-input" accept="image/*" style="display:none" onchange="previewChatImg(this)">
+    <button onclick="document.getElementById('chat-img-input').click()" style="width:40px;height:40px;border-radius:50%;background:#ede6d5;color:#5c7a4e;border:none;font-size:1rem;cursor:pointer;flex-shrink:0"><i class="fas fa-image"></i></button>
     <input class="chat-inp" id="chat-inp" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter')sendChatMsg()">
     <button class="chat-send" onclick="sendChatMsg()"><i class="fas fa-paper-plane"></i></button>
   </div>
@@ -697,7 +798,7 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWith
                                     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, updateDoc, addDoc, deleteDoc,
          collection, query, where, orderBy, onSnapshot, getDocs,
-         serverTimestamp, increment, limit }
+         serverTimestamp, increment, limit, documentId }
                                     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ── Firebase Config ──
@@ -787,49 +888,25 @@ function compressImg(file, maxPx=1080, quality=.8) {
 }
 
 // ── Auth State ──
+// onAuthStateChanged — يُستخدم فقط لاستعادة الجلسة عند تحديث الصفحة
+// تسجيل الدخول الجديد يتم عبر doLogin/doRegister مباشرة
+let _authHandled = false;
 onAuthStateChanged(auth, async user => {
-  if(user) {
-    G.user = user;
-    try {
-      let snap = await getDoc(doc(db,'wb_users',user.uid));
-      // إذا لم يوجد document للمستخدم أنشئه تلقائياً
-      if(!snap.exists()) {
-        const fallbackName = user.displayName || user.email?.split('@')[0] || 'مستخدم';
-        await setDoc(doc(db,'wb_users',user.uid),{
-          uid:user.uid,
-          name:fallbackName,
-          username:fallbackName.toLowerCase().replace(/\s+/g,'_'),
-          email:user.email||'',
-          avatar:'', bio:'', link:'',
-          followers:0, following:0, posts:0,
-          isPrivate:false, isVerified:false, isAdmin:false,
-          blockedUsers:[], mutedUsers:[],
-          createdAt:serverTimestamp()
-        });
-        snap = await getDoc(doc(db,'wb_users',user.uid));
-      }
-      G.userData = snap.data();
-      applyTheme(G.theme);
-      showApp();
-      loadFeed();
-      loadStories();
-      loadExplore();
-      listenNotifs();
-      listenMsgBadge();
-    } catch(e) {
-      console.error('خطأ في تحميل بيانات المستخدم:', e);
-      // حتى لو فشل Firestore، افتح التطبيق ببيانات مؤقتة
-      G.userData = { name: user.displayName||'مستخدم', username:'user', email:user.email||'', avatar:'', bio:'', followers:0, following:0, posts:0 };
-      applyTheme(G.theme);
-      showApp();
-      loadFeed();
+  if(user && !_authHandled && !G.user) {
+    // استعادة جلسة موجودة (page refresh)
+    _authHandled = true;
+    await openAppAfterAuth(user);
+  } else if(!user) {
+    _authHandled = false;
+    if(G.user) {
+      // تم تسجيل الخروج
+      G.user = null; G.userData = null;
+      const authEl = document.getElementById('auth-screen');
+      authEl.classList.remove('hidden');
+      authEl.style.display = 'flex';
+      const lb=document.getElementById('l-btn'); if(lb){lb.textContent='دخول';lb.disabled=false;}
+      const rb=document.getElementById('r-btn'); if(rb){rb.textContent='إنشاء الحساب';rb.disabled=false;}
     }
-  } else {
-    G.user = null; G.userData = null;
-    document.getElementById('auth-screen').classList.remove('hidden');
-    // أعد تعيين الأزرار
-    const lb=document.getElementById('l-btn'); if(lb){lb.textContent='دخول';lb.disabled=false;}
-    const rb=document.getElementById('r-btn'); if(rb){rb.textContent='إنشاء الحساب';rb.disabled=false;}
   }
 });
 
@@ -841,73 +918,136 @@ window.switchTab = t => {
   document.getElementById('login-f').style.display = t==='login' ? 'block':'none';
   document.getElementById('reg-f').style.display   = t==='reg'   ? 'block':'none';
 };
+// ── دالة مشتركة لفتح التطبيق بعد Auth ──
+async function openAppAfterAuth(user, extraData={}) {
+  G.user = user;
+  // بيانات فورية من Auth
+  const emailName = user.email?.split('@')[0]||'user';
+  G.userData = {
+    uid: user.uid,
+    name: extraData.name || user.displayName || emailName,
+    username: extraData.username || emailName.toLowerCase().replace(/[^a-z0-9_]/g,'').substring(0,20)||'user',
+    email: user.email||'',
+    avatar: extraData.avatar||'',
+    bio:'', link:'',
+    followers:0, following:0, posts:0,
+    isPrivate:false, isVerified:false, isAdmin:false,
+    ...extraData
+  };
+  applyTheme(G.theme);
+  showApp();
+  loadFeed();
+  loadStories();
+  loadExplore();
+  listenNotifs();
+  listenMsgBadge();
+  listenFriendRequests();
+  // تحميل بيانات Firestore في الخلفية بدون انتظار
+  setTimeout(async ()=>{
+    try{
+      const snap = await getDoc(doc(db,'wb_users',user.uid));
+      if(snap.exists()){
+        G.userData = {...G.userData, ...snap.data()};
+        if(G.page==='profile-page') loadMyProfile();
+        if(G.userData.isAdmin){ G.isAdmin=true; const ab=document.getElementById('admin-hbtn'); if(ab) ab.style.display='flex'; }
+      } else {
+        // أنشئ المستخدم في الخلفية
+        setDoc(doc(db,'wb_users',user.uid), {
+          uid:user.uid, name:G.userData.name, username:G.userData.username,
+          email:user.email||'', avatar:'', bio:'', link:'',
+          followers:0, following:0, posts:0,
+          isPrivate:false, isVerified:false, isAdmin:false,
+          blockedUsers:[], mutedUsers:[], createdAt:serverTimestamp()
+        }).catch(()=>{});
+      }
+    }catch(e){ console.warn('Firestore background load failed:', e.message); }
+  }, 100);
+}
+
 window.doLogin = async () => {
   const email=document.getElementById('l-email').value.trim();
   const pass=document.getElementById('l-pass').value;
   if(!email||!pass){return authErr('أدخل البريد وكلمة المرور');}
-  const btn=document.getElementById('l-btn'); btn.textContent='جاري...'; btn.disabled=true;
+  const btn=document.getElementById('l-btn');
+  btn.textContent='جاري...'; btn.disabled=true;
+  const resetBtn=()=>{ btn.textContent='دخول'; btn.disabled=false; };
   try{
-    await signInWithEmailAndPassword(auth,email,pass);
-    // onAuthStateChanged سيتولى الباقي
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    // نجح — افتح التطبيق فوراً
+    await openAppAfterAuth(cred.user);
   } catch(e){
-    btn.textContent='دخول'; btn.disabled=false;
+    resetBtn();
     if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'){
       authErr('البريد أو كلمة المرور غير صحيحة');
     } else if(e.code==='auth/too-many-requests'){
       authErr('محاولات كثيرة، انتظر قليلاً');
     } else if(e.code==='auth/network-request-failed'){
-      authErr('تحقق من الاتصال بالإنترنت');
+      authErr('لا يوجد اتصال بالإنترنت');
+    } else if(e.code==='auth/invalid-email'){
+      authErr('البريد الإلكتروني غير صحيح');
     } else {
-      authErr('خطأ في تسجيل الدخول: '+e.message);
+      authErr('خطأ: ' + (e.message||e.code));
+      console.error('Login error:', e);
     }
   }
 };
+
 window.doRegister = async () => {
   const name=document.getElementById('r-name').value.trim();
-  const username=document.getElementById('r-username').value.trim().replace('@','').toLowerCase().replace(/\s+/g,'_');
+  const rawUser=document.getElementById('r-username').value.trim().replace('@','');
+  const username=rawUser.toLowerCase().replace(/[^a-z0-9_]/g,'');
   const email=document.getElementById('r-email').value.trim();
   const pass=document.getElementById('r-pass').value;
-  if(!name||!username||!email||!pass){return authErr('أكمل جميع الحقول');}
+  if(!name||!rawUser||!email||!pass){return authErr('أكمل جميع الحقول');}
   if(pass.length<6){return authErr('كلمة المرور 6 أحرف على الأقل');}
-  if(!/^[a-zA-Z0-9_\u0600-\u06FF]+$/.test(username)){return authErr('اسم المستخدم: أحرف وأرقام فقط');}
-  const btn=document.getElementById('r-btn'); btn.textContent='جاري الإنشاء...'; btn.disabled=true;
+  if(!/^[a-z0-9_]+$/.test(username)||username.length<3){
+    return authErr('اسم المستخدم: 3+ أحرف، إنجليزية وأرقام فقط');
+  }
+  const btn=document.getElementById('r-btn');
+  btn.textContent='جاري الإنشاء...'; btn.disabled=true;
+  const resetRegBtn=()=>{ btn.textContent='إنشاء الحساب'; btn.disabled=false; };
   try{
-    // 1. إنشاء الحساب في Firebase Auth
-    const cred = await createUserWithEmailAndPassword(auth,email,pass);
-    // 2. حفظ البيانات في Firestore مع retry
-    const userData = {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    // نجح — افتح التطبيق فوراً بالبيانات المُدخلة
+    await openAppAfterAuth(cred.user, {name, username, email});
+    // احفظ في Firestore في الخلفية
+    setDoc(doc(db,'wb_users',cred.user.uid), {
       uid:cred.user.uid, name, username, email,
       avatar:'', bio:'', link:'',
       followers:0, following:0, posts:0,
       isPrivate:false, isVerified:false, isAdmin:false,
-      blockedUsers:[], mutedUsers:[],
-      createdAt:serverTimestamp()
-    };
-    // محاولتان للحفظ
-    try {
-      await setDoc(doc(db,'wb_users',cred.user.uid), userData);
-    } catch(dbErr) {
-      // انتظر ثانية وحاول مجدداً
-      await new Promise(r=>setTimeout(r,1500));
-      await setDoc(doc(db,'wb_users',cred.user.uid), userData);
-    }
-    // onAuthStateChanged سيكمل الباقي تلقائياً
+      blockedUsers:[], mutedUsers:[], createdAt:serverTimestamp()
+    }).catch(e=>console.warn('Firestore save failed (will retry):', e.message));
   } catch(e){
-    btn.textContent='إنشاء الحساب'; btn.disabled=false;
-    if(e.code==='auth/email-already-in-use') authErr('البريد مستخدم بالفعل — جرب تسجيل الدخول');
+    resetRegBtn();
+    if(e.code==='auth/email-already-in-use') authErr('البريد مستخدم — جرب تسجيل الدخول');
     else if(e.code==='auth/invalid-email') authErr('البريد الإلكتروني غير صحيح');
     else if(e.code==='auth/weak-password') authErr('كلمة المرور ضعيفة جداً');
-    else authErr('خطأ: '+e.message);
+    else if(e.code==='auth/network-request-failed') authErr('لا يوجد اتصال بالإنترنت');
+    else authErr('خطأ: '+(e.message||e.code));
   }
 };
 window.doLogout = async () => {
   if(!confirm('هل تريد تسجيل الخروج؟'))return;
-  Object.values(G.unsubs).forEach(fn=>fn&&fn());
+  // أوقف كل المستمعين
+  Object.values(G.unsubs).forEach(fn=>{ try{fn&&fn();}catch(e){} });
+  G.unsubs = {};
+  // أعد تعيين الحالة
+  _authHandled = false;
+  G.user = null; G.userData = null;
+  // أخفِ التطبيق
   document.getElementById('main-hdr').style.display='none';
   document.getElementById('stories-wrap').style.display='none';
   document.getElementById('bnav').style.display='none';
+  try{ document.getElementById('chat-screen').classList.remove('open'); }catch(e){}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  await signOut(auth);
+  // أظهر شاشة تسجيل الدخول
+  const authEl=document.getElementById('auth-screen');
+  authEl.classList.remove('hidden');
+  authEl.style.display='flex';
+  const lb=document.getElementById('l-btn'); if(lb){lb.textContent='دخول';lb.disabled=false;}
+  const rb=document.getElementById('r-btn'); if(rb){rb.textContent='إنشاء الحساب';rb.disabled=false;}
+  try{ await signOut(auth); }catch(e){}
 };
 function authErr(msg){const el=document.getElementById('auth-err');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3500);}
 
@@ -927,7 +1067,13 @@ window.doResetPass = async () => {
 // APP INIT
 // ══════════════════════════════
 function showApp(){
-  document.getElementById('auth-screen').classList.add('hidden');
+  const authScreen = document.getElementById('auth-screen');
+  authScreen.classList.add('hidden');
+  // إخفاء إضافي بـ style لضمان الإخفاء على كل المتصفحات
+  authScreen.style.display = 'none';
+  // إعادة تعيين أزرار Auth
+  const lb=document.getElementById('l-btn'); if(lb){lb.textContent='دخول';lb.disabled=false;}
+  const rb=document.getElementById('r-btn'); if(rb){rb.textContent='إنشاء الحساب';rb.disabled=false;}
   document.getElementById('main-hdr').style.display='flex';
   document.getElementById('stories-wrap').style.display='block';
   document.getElementById('bnav').style.display='flex';
@@ -946,7 +1092,8 @@ window.goPage = (pageId) => {
   const map={
     'feed-page':'bn-feed','explore-page':'bn-explore','reels-page':'bn-reels',
     'messages-page':'bn-messages','profile-page':'bn-profile',
-    'notif-page':null,'search-page':null,'settings-page':null
+    'friends-page':'bn-friends',
+    'notif-page':null,'settings-page':null
   };
   if(map[pageId]) document.getElementById(map[pageId])?.classList.add('active');
   document.getElementById('stories-wrap').style.display = pageId==='feed-page' ? 'block':'none';
@@ -960,6 +1107,8 @@ window.goPage = (pageId) => {
   G.page = pageId;
   if(pageId==='profile-page') loadMyProfile();
   if(pageId==='messages-page') loadChats();
+  if(pageId==='settings-page') updateSettingsThemeUI();
+  if(pageId==='friends-page') loadFriendRequests();
   if(pageId==='notif-page') markNotifsRead();
   if(pageId==='reels-page'){ loadReels(); setTimeout(setupReelAutoplay, 500); }
 };
@@ -972,11 +1121,28 @@ function applyTheme(t){
   localStorage.setItem('wb-theme', t);
   const isDark = t==='dark' || (t==='auto' && window.matchMedia('(prefers-color-scheme:dark)').matches);
   document.body.classList.toggle('dark', isDark);
-  document.getElementById('dark-btn').innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+  // dark-btn اختياري - لا يسبب خطأ إذا غير موجود
+  const darkBtn = document.getElementById('dark-btn');
+  if(darkBtn) darkBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
   ['th-light','th-dark','th-auto'].forEach(id=>document.getElementById(id)?.classList.remove('active'));
   document.getElementById('th-'+t)?.classList.add('active');
+  updateSettingsThemeUI();
 }
 window.toggleDark = () => applyTheme(G.theme==='dark'?'light':'dark');
+window.toggleDarkFromSettings = () => {
+  const newTheme = G.theme==='dark' ? 'light' : 'dark';
+  applyTheme(newTheme);
+  updateSettingsThemeUI();
+};
+function updateSettingsThemeUI(){
+  try{
+    const isDark = document.body.classList.contains('dark');
+    const tog = document.getElementById('dark-toggle-settings');
+    const lbl = document.getElementById('theme-label-txt');
+    if(tog) tog.classList.toggle('on', isDark);
+    if(lbl) lbl.textContent = isDark ? 'وضع داكن' : 'وضع فاتح';
+  }catch(e){}
+}
 window.setTheme = t => applyTheme(t);
 applyTheme(G.theme);
 
@@ -1620,7 +1786,7 @@ function loadExplore(){
     posts.forEach(p=>(p.tags||[]).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
     Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,12).forEach(([tag])=>{
       const b=document.createElement('button'); b.className='tag-chip'; b.textContent=tag;
-      b.onclick=()=>{document.getElementById('search-inp').value=tag;goPage('search-page');doSearch(tag);};
+      b.onclick=()=>{document.getElementById('search-inp').value=tag;goPage('explore-page');doSearch(tag);};
       tagsWrap.appendChild(b);
     });
     // Grid
@@ -1676,9 +1842,39 @@ function openChat(chatId, otherId, otherUser){
   av.innerHTML=otherUser.avatar?`<img src="${otherUser.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(otherUser.name?.[0]||'م');
   document.getElementById('chat-screen').classList.add('open');
   loadChatMessages(chatId);
-  // Mark read
   if(chatId) updateDoc(doc(db,'wb_chats',chatId),{unreadCount:0}).catch(()=>{});
+  // فحص حالة الدردشة — هل تحتاج قبول؟
+  checkChatRequestStatus(chatId, otherId);
 }
+
+async function checkChatRequestStatus(chatId, otherId){
+  const reqBar = document.getElementById('chat-request-bar');
+  const inputBar = document.getElementById('chat-input-bar');
+  try{
+    const snap = await getDoc(doc(db,'wb_chats',chatId));
+    const data = snap.data();
+    // إذا كان الطرف الآخر هو من بدأ المحادثة وأنا لم أقبل بعد
+    const isPending = data?.requestStatus === 'pending' && data?.initiatorUid && data.initiatorUid !== G.user?.uid;
+    if(reqBar) reqBar.style.display = isPending ? 'block' : 'none';
+    if(inputBar) inputBar.style.display = isPending ? 'none' : 'flex';
+  }catch(e){
+    if(reqBar) reqBar.style.display='none';
+    if(inputBar) inputBar.style.display='flex';
+  }
+}
+
+window.acceptChatRequest = async () => {
+  if(!G.currentChatId) return;
+  await updateDoc(doc(db,'wb_chats',G.currentChatId),{requestStatus:'accepted'});
+  document.getElementById('chat-request-bar').style.display='none';
+  document.getElementById('chat-input-bar').style.display='flex';
+};
+
+window.rejectChatRequest = async () => {
+  if(!G.currentChatId) return;
+  await updateDoc(doc(db,'wb_chats',G.currentChatId),{requestStatus:'rejected'});
+  closeChatScreen();
+};
 window.closeChatScreen=()=>{ document.getElementById('chat-screen').classList.remove('open'); if(G.unsubs.chat){G.unsubs.chat();G.unsubs.chat=null;} };
 
 function loadChatMessages(chatId){
@@ -1691,35 +1887,108 @@ function loadChatMessages(chatId){
     snap.forEach(d=>arr.push({id:d.id,...d.data()}));
     arr.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
     msgs.innerHTML='';
-    if(!arr.length){msgs.innerHTML='<div style="text-align:center;color:#6b7a5a;padding:30px;font-size:.85rem">ابدأ المحادثة 👋</div>';return;}
+    if(!arr.length){
+      msgs.innerHTML='<div style="text-align:center;color:#6b7a5a;padding:30px;font-size:.85rem">ابدأ المحادثة 👋</div>';
+      return;
+    }
     arr.forEach(m=>{
-      const isMe=m.senderId===G.user?.uid;
-      const t=m.createdAt?.toDate?m.createdAt.toDate().toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'}):'';
-      const el=document.createElement('div');
-      el.style.cssText=`display:flex;flex-direction:column;align-items:${isMe?'flex-start':'flex-end'}`;
-      el.innerHTML=`
-        <div class="chat-bubble ${isMe?'me':'them'}">${m.text}
-          <div class="chat-time" style="text-align:${isMe?'left':'right'}">${t}</div>
-        </div>`;
-      msgs.appendChild(el);
-      if(!isMe&&!m.read) updateDoc(doc(db,'wb_messages',m.id),{read:true}).catch(()=>{});
+      const isMe = m.senderId === G.user?.uid;
+      const t = m.createdAt?.toDate
+        ? m.createdAt.toDate().toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'})
+        : '';
+
+      // صورة / حرف المرسل الآخر
+      const avHtml = m.senderAvatar
+        ? `<div class="chat-msg-av"><img src="${m.senderAvatar}"></div>`
+        : `<div class="chat-msg-av">${(m.senderName||'م')[0]}</div>`;
+
+      const row = document.createElement('div');
+      row.className = 'chat-row ' + (isMe ? 'me' : 'them');
+
+      // محتوى الفقاعة: نص + صورة اختيارية
+      const imgContent = m.imageUrl
+        ? `<img src="${m.imageUrl}" class="chat-img" onclick="window.open('${m.imageUrl}','_blank')" loading="lazy">`
+        : '';
+      const textContent = (m.text && m.text !== '📷 صورة') ? m.text : '';
+
+      if(isMe){
+        // أنا المرسل ← فقاعة خضراء على اليمين
+        let seenHtml = '';
+        if(m.read && m.readAt){
+          const readTime = m.readAt?.toDate ? m.readAt.toDate().toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'}) : '';
+          seenHtml = `<div class="read-receipt seen"><i class="fas fa-check-double"></i> تمت الرؤية ${readTime}</div>`;
+        } else {
+          seenHtml = `<div class="read-receipt"><i class="fas fa-check"></i> مُرسلة</div>`;
+        }
+        row.innerHTML =
+          '<div style="display:flex;flex-direction:column;align-items:flex-end">' +
+            '<div class="chat-bubble me">' +
+              (imgContent || '') +
+              (textContent ? '<div style="margin-top:'+(imgContent?'6px':'0')+'">' + textContent + '</div>' : '') +
+              '<div class="chat-time">' + t + '</div>' +
+            '</div>' +
+            seenHtml +
+          '</div>';
+      } else {
+        // الطرف الآخر ← صورته + فقاعة بيضاء على اليسار
+        row.innerHTML =
+          avHtml +
+          '<div style="display:flex;flex-direction:column;align-items:flex-start">' +
+            '<div class="chat-bubble them">' +
+              (imgContent || '') +
+              (textContent ? '<div style="margin-top:'+(imgContent?'6px':'0')+'">' + textContent + '</div>' : '') +
+              '<div class="chat-time">' + t + '</div>' +
+            '</div>' +
+          '</div>';
+        // تحديث حقل read + readAt عند الرؤية
+        if(!m.read){
+          updateDoc(doc(db,'wb_messages',m.id),{
+            read: true,
+            readAt: serverTimestamp()
+          }).catch(()=>{});
+        }
+      }
+
+      msgs.appendChild(row);
     });
-    msgs.scrollTop=msgs.scrollHeight;
+    msgs.scrollTop = msgs.scrollHeight;
   }, err=>console.error('Chat error:',err));
 }
 
+// ── صور الدردشة ──
+window.previewChatImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  if(file.size > 5*1024*1024){ alert('الصورة كبيرة جداً! الحد 5MB'); input.value=''; return; }
+  const compressed = await compressImg(file, 1080, .82);
+  G._chatImgData = compressed;
+  document.getElementById('chat-img-preview').src = compressed;
+  document.getElementById('chat-img-preview-bar').style.display = 'flex';
+  input.value = '';
+};
+window.clearChatImg = () => {
+  G._chatImgData = null;
+  document.getElementById('chat-img-preview-bar').style.display = 'none';
+  document.getElementById('chat-img-preview').src = '';
+};
+
 window.sendChatMsg=async()=>{
   const inp=document.getElementById('chat-inp');
-  const text=inp.value.trim(); if(!text||!G.currentChatId)return;
+  const text=inp.value.trim();
+  const imgData=G._chatImgData||null;
+  if((!text && !imgData)||!G.currentChatId)return;
   inp.value='';
+  if(imgData){ G._chatImgData=null; clearChatImg(); }
   try{
-    await addDoc(collection(db,'wb_messages'),{
+    const msgData={
       chatId:G.currentChatId, senderId:G.user.uid,
       senderName:G.userData?.name||'', senderAvatar:G.userData?.avatar||'',
-      text, read:false, createdAt:serverTimestamp()
-    });
+      text:text||(imgData?'📷 صورة':''), imageUrl:imgData||'',
+      read:false, createdAt:serverTimestamp()
+    };
+    await addDoc(collection(db,'wb_messages'),msgData);
+    const preview=imgData?'📷 صورة':text;
     await updateDoc(doc(db,'wb_chats',G.currentChatId),{
-      lastMessage:text, lastMessageAt:serverTimestamp(), unreadCount:increment(1)
+      lastMessage:preview, lastMessageAt:serverTimestamp(), unreadCount:increment(1)
     });
     // Notification
     if(G.currentChatOtherUid){
@@ -1738,7 +2007,17 @@ async function startChatWith(otherUid){
   const ref=doc(db,'wb_chats',chatId);
   const snap=await getDoc(ref);
   if(!snap.exists()){
-    await setDoc(ref,{participants:[G.user.uid,otherUid],lastMessage:'',lastMessageAt:serverTimestamp(),unreadCount:0,createdAt:serverTimestamp()});
+    // تحقق إذا كانا أصدقاء
+    const friendSnap = await getDoc(doc(db,'wb_friends',G.user.uid+'_'+otherUid));
+    const areFriends = friendSnap.exists();
+    await setDoc(ref,{
+      participants:[G.user.uid,otherUid],
+      lastMessage:'',lastMessageAt:serverTimestamp(),
+      unreadCount:0,
+      requestStatus: areFriends ? 'accepted' : 'pending',
+      initiatorUid: G.user.uid,
+      createdAt:serverTimestamp()
+    });
   }
   const uSnap=await getDoc(doc(db,'wb_users',otherUid));
   const other=uSnap.exists()?{uid:otherUid,...uSnap.data()}:{uid:otherUid,name:'مستخدم',avatar:''};
@@ -1755,7 +2034,9 @@ function listenMsgBadge(){
   G.unsubs.msgBadge=onSnapshot(q,snap=>{
     let total=0; snap.forEach(d=>{total+=(d.data().unreadCount||0);});
     const b=document.getElementById('msg-badge');
-    b.style.display=total>0?'flex':'none'; b.textContent=total>9?'9+':total;
+    const bh=document.getElementById('msg-badge-hdr');
+    if(b){ b.style.display=total>0?'flex':'none'; b.textContent=total>9?'9+':total; }
+    if(bh){ bh.style.display=total>0?'flex':'none'; bh.textContent=total>9?'9+':total; }
   });
 }
 
@@ -2035,6 +2316,23 @@ window.submitComment=async()=>{
 // SEARCH
 // ══════════════════════════════
 window.doSearch=async(q)=>{
+  const trending = document.getElementById('explore-trending');
+  const grid = document.getElementById('explore-grid');
+  const res = document.getElementById('search-res');
+  if(!q.trim()){
+    if(res){ res.style.display='none'; res.innerHTML=''; }
+    if(trending) trending.style.display='block';
+    if(grid) grid.style.display='grid';
+    return;
+  }
+  // إخفاء trending وعرض نتائج البحث
+  if(trending) trending.style.display='none';
+  if(grid) grid.style.display='none';
+  if(res){ res.style.display='block'; res.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>'; }
+  // الكود الأصلي للبحث يعمل بعد هذا
+  _doSearchCore(q);
+};
+async function _doSearchCore(q){
   const res=document.getElementById('search-res');
   if(!q.trim()){res.innerHTML='<div class="empty"><i class="fas fa-search"></i><p>ابحث عن أشخاص أو منشورات</p></div>';return;}
   res.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
@@ -2068,6 +2366,224 @@ window.doSearch=async(q)=>{
 
 // ══════════════════════════════
 // ADMIN DASHBOARD (Professional)
+
+// ══════════════════════════════
+// FRIENDS SYSTEM
+// ══════════════════════════════
+
+// ── البحث عن أصدقاء ──
+window.friendsTab = (tab) => {
+  ['find','requests','friends'].forEach(t => {
+    document.getElementById('fst-'+t)?.classList.toggle('active', t===tab);
+  });
+  if(tab==='find'){
+    document.getElementById('friends-tab-content').innerHTML =
+      '<div class="empty"><i class="fas fa-search"></i><p>ابحث بالاسم أو @اليوزر أو البريد</p></div>';
+    document.getElementById('friends-search-inp').focus();
+  } else if(tab==='requests'){
+    loadFriendRequests();
+  } else if(tab==='friends'){
+    loadMyFriends();
+  }
+};
+
+// ── بحث شامل: الاسم + اليوزر + البريد ──
+window.friendsSearch = async (q) => {
+  const cont = document.getElementById('friends-tab-content');
+  if(!q.trim()){ cont.innerHTML='<div class="empty"><i class="fas fa-search"></i><p>ابحث بالاسم أو @اليوزر أو البريد</p></div>'; return; }
+  cont.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
+  const term = q.replace('@','').toLowerCase();
+  try{
+    const snap = await getDocs(collection(db,'wb_users'));
+    const results = [];
+    snap.forEach(d => {
+      if(d.id === G.user?.uid) return; // تخطي نفسك
+      const u = d.data();
+      if(
+        u.name?.toLowerCase().includes(term) ||
+        u.username?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term)
+      ) results.push({id:d.id,...u});
+    });
+    if(!results.length){
+      cont.innerHTML='<div class="empty"><i class="fas fa-user-slash"></i><p>لا نتائج لـ "'+q+'"</p></div>';
+      return;
+    }
+    // جلب حالة الصداقة لكل مستخدم
+    cont.innerHTML='';
+    for(const u of results){
+      const [fSnap, sentSnap] = await Promise.all([
+        getDoc(doc(db,'wb_friends',G.user.uid+'_'+u.id)),
+        getDoc(doc(db,'wb_friend_requests',G.user.uid+'_'+u.id))
+      ]);
+      const isFriend = fSnap.exists();
+      const isPending = sentSnap.exists() && sentSnap.data()?.status==='pending';
+      cont.appendChild(buildUserCard(u, isFriend, isPending));
+    }
+  }catch(e){ cont.innerHTML='<div class="empty"><i class="fas fa-exclamation"></i><p>'+e.message+'</p></div>'; }
+};
+
+function buildUserCard(u, isFriend=false, isPending=false){
+  const card = document.createElement('div');
+  card.className = 'friend-req-card';
+  card.style.cssText='display:flex;align-items:center;gap:12px;';
+
+  let btnHtml = '';
+  if(isFriend){
+    btnHtml = `<button style="padding:8px 14px;border-radius:10px;border:1px solid rgba(92,122,78,.3);background:rgba(92,122,78,.1);color:#5c7a4e;font-family:'Cairo',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer" onclick="openChatFromFriend('${u.id}','${(u.name||'').replace(/'/g,'')}')"><i class="fas fa-comment-dots"></i> دردشة</button>`;
+  } else if(isPending){
+    btnHtml = `<button style="padding:8px 14px;border-radius:10px;border:1px solid var(--warm,#d4c9a8);background:transparent;color:#6b7a5a;font-family:'Cairo',sans-serif;font-weight:700;font-size:.78rem;cursor:default">⏳ طلب مُرسل</button>`;
+  } else {
+    btnHtml = `<button onclick="sendFriendRequest('${u.id}','${(u.name||'').replace(/'/g,'')}',this)" style="padding:8px 14px;border-radius:10px;background:#5c7a4e;color:#fff;border:none;font-family:'Cairo',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer"><i class="fas fa-user-plus"></i> إضافة</button>`;
+  }
+
+  card.innerHTML = `
+    <div class="fav">${u.avatar?`<img src="${u.avatar}">`:(u.name?.[0]||'م')}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800;font-size:.9rem">${u.name||'—'}</div>
+      <div style="font-size:.75rem;color:#6b7a5a">@${u.username||'—'}</div>
+    </div>
+    ${btnHtml}`;
+  return card;
+}
+
+// ── إرسال طلب صداقة ──
+window.sendFriendRequest = async (toUid, toName, btn) => {
+  if(!G.user) return;
+  btn.textContent = '⏳'; btn.disabled = true;
+  const reqId = G.user.uid+'_'+toUid;
+  try{
+    await setDoc(doc(db,'wb_friend_requests',reqId),{
+      fromUid: G.user.uid,
+      fromName: G.userData?.name||'',
+      fromAvatar: G.userData?.avatar||'',
+      toUid, toName,
+      status: 'pending',
+      createdAt: serverTimestamp()
+    });
+    // إشعار للمستخدم الآخر
+    await addDoc(collection(db,'wb_notifications'),{
+      userId: toUid, type:'friend_request',
+      actorId: G.user.uid, actorName: G.userData?.name||'',
+      read:false, createdAt: serverTimestamp()
+    });
+    btn.textContent = '⏳ طلب مُرسل';
+    btn.style.background = 'transparent';
+    btn.style.color = '#6b7a5a';
+    btn.style.border = '1px solid #d4c9a8';
+  }catch(e){ btn.disabled=false; btn.innerHTML='<i class="fas fa-user-plus"></i> إضافة'; alert('خطأ: '+e.message); }
+};
+
+// ── تحميل طلبات الصداقة الواردة ──
+async function loadFriendRequests(){
+  const cont = document.getElementById('friends-tab-content');
+  if(!cont) return;
+  cont.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
+  try{
+    const snap = await getDocs(query(collection(db,'wb_friend_requests'),where('toUid','==',G.user.uid),where('status','==','pending')));
+    const badge = document.getElementById('freq-count');
+    if(badge){ badge.textContent=snap.size; badge.style.display=snap.size>0?'inline':'none'; }
+    const friendsBadge = document.getElementById('friends-badge');
+    if(friendsBadge){ friendsBadge.textContent=snap.size; friendsBadge.style.display=snap.size>0?'flex':'none'; }
+    cont.innerHTML='';
+    if(snap.empty){
+      cont.innerHTML='<div class="empty"><i class="fas fa-user-clock"></i><p>لا توجد طلبات صداقة</p></div>';
+      return;
+    }
+    snap.forEach(d => {
+      const r = {id:d.id,...d.data()};
+      const card = document.createElement('div');
+      card.className = 'friend-req-card';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="fav">${r.fromAvatar?`<img src="${r.fromAvatar}">`:(r.fromName?.[0]||'م')}</div>
+          <div style="flex:1">
+            <div style="font-weight:800;font-size:.9rem">${r.fromName||'—'}</div>
+            <div style="font-size:.75rem;color:#6b7a5a">يريد إضافتك صديقاً</div>
+          </div>
+        </div>
+        <div class="friend-actions">
+          <button class="btn-accept" onclick="acceptFriend('${r.id}','${r.fromUid}','${(r.fromName||'').replace(/'/g,'')}',this.closest('.friend-req-card'))">✅ قبول</button>
+          <button class="btn-reject" onclick="rejectFriend('${r.id}',this.closest('.friend-req-card'))">❌ رفض</button>
+        </div>`;
+      cont.appendChild(card);
+    });
+  }catch(e){ cont.innerHTML='<div class="empty"><p>'+e.message+'</p></div>'; }
+}
+
+// ── قبول طلب الصداقة ──
+window.acceptFriend = async (reqId, fromUid, fromName, card) => {
+  try{
+    // احفظ الصداقة في الاتجاهين
+    await Promise.all([
+      setDoc(doc(db,'wb_friends',G.user.uid+'_'+fromUid),{ uid:fromUid, friendedAt:serverTimestamp() }),
+      setDoc(doc(db,'wb_friends',fromUid+'_'+G.user.uid),{ uid:G.user.uid, friendedAt:serverTimestamp() }),
+      updateDoc(doc(db,'wb_friend_requests',reqId),{ status:'accepted' }),
+    ]);
+    // إشعار للطرف الآخر
+    await addDoc(collection(db,'wb_notifications'),{
+      userId:fromUid, type:'friend_accepted',
+      actorId:G.user.uid, actorName:G.userData?.name||'',
+      read:false, createdAt:serverTimestamp()
+    });
+    card.style.opacity='.4';
+    setTimeout(()=>{ card.remove(); }, 400);
+  }catch(e){ alert('خطأ: '+e.message); }
+};
+
+// ── رفض طلب الصداقة ──
+window.rejectFriend = async (reqId, card) => {
+  try{
+    await updateDoc(doc(db,'wb_friend_requests',reqId),{ status:'rejected' });
+    card.style.opacity='.4';
+    setTimeout(()=>card.remove(), 400);
+  }catch(e){ alert('خطأ: '+e.message); }
+};
+
+// ── قائمة الأصدقاء ──
+async function loadMyFriends(){
+  const cont = document.getElementById('friends-tab-content');
+  cont.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
+  try{
+    const snap = await getDocs(query(collection(db,'wb_friends'),where(documentId(),'>=',G.user.uid+'_'),where(documentId(),'<=',G.user.uid+'_')));
+    cont.innerHTML='';
+    if(snap.empty){ cont.innerHTML='<div class="empty"><i class="fas fa-user-friends"></i><p>لا أصدقاء بعد — ابحث عن أشخاص لإضافتهم</p></div>'; return; }
+    for(const d of snap.docs){
+      const friendUid = d.data().uid;
+      const uSnap = await getDoc(doc(db,'wb_users',friendUid));
+      if(!uSnap.exists()) continue;
+      const u = {id:friendUid,...uSnap.data()};
+      cont.appendChild(buildUserCard(u, true, false));
+    }
+  }catch(e){ cont.innerHTML='<div class="empty"><p>'+e.message+'</p></div>'; }
+}
+
+// ── فتح دردشة من قائمة الأصدقاء ──
+window.openChatFromFriend = async (uid, name) => {
+  const chatId = [G.user.uid, uid].sort().join('_');
+  const ref_ = doc(db,'wb_chats',chatId);
+  const snap = await getDoc(ref_);
+  if(!snap.exists()){
+    await setDoc(ref_,{ participants:[G.user.uid,uid], lastMessage:'', lastMessageAt:serverTimestamp(), unreadCount:0, requestStatus:'pending', createdAt:serverTimestamp() });
+  }
+  const uSnap = await getDoc(doc(db,'wb_users',uid));
+  const other = uSnap.exists() ? {uid,...uSnap.data()} : {uid, name, avatar:''};
+  openChat(chatId, uid, other);
+};
+
+// ── فحص طلبات الصداقة عند تحميل التطبيق ──
+async function listenFriendRequests(){
+  if(!G.user) return;
+  const q = query(collection(db,'wb_friend_requests'),where('toUid','==',G.user.uid),where('status','==','pending'));
+  if(G.unsubs.friendReqs) G.unsubs.friendReqs();
+  G.unsubs.friendReqs = onSnapshot(q, snap => {
+    const badge = document.getElementById('friends-badge');
+    const freqBadge = document.getElementById('freq-count');
+    if(badge){ badge.textContent=snap.size; badge.style.display=snap.size>0?'flex':'none'; }
+    if(freqBadge){ freqBadge.textContent=snap.size; freqBadge.style.display=snap.size>0?'inline':'none'; }
+  });
+}
+
 // ══════════════════════════════
 let _isAdmin=false;
 let _adminCode='';
