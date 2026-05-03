@@ -140,7 +140,7 @@ body.dark .btn-secondary{background:#1e2a1a;color:#6a9b60;}
 #reels-list{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;}
 #reels-list::-webkit-scrollbar{display:none;}
 .reel-item{height:calc(100vh - 56px - 64px);scroll-snap-align:start;position:relative;background:#000;overflow:hidden;flex-shrink:0;width:100%;}
-.reel-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;pointer-events:none;}
+.reel-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;z-index:1;pointer-events:none;background:#000;}
 .reel-video::-webkit-media-controls{display:none!important;}
 .reel-video::-webkit-media-controls-enclosure{display:none!important;}
 .reel-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,transparent 45%,rgba(0,0,0,.2) 100%);z-index:2;pointer-events:none;}
