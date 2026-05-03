@@ -2567,29 +2567,59 @@ window.toggleFollowPub=async()=>{
   const uid=G.pubProfileUid; if(!uid||!G.user)return;
   const ud=G.userData;
   const followId=`${G.user.uid}_${uid}`;
-  const ref=doc(db,'wb_follows',followId);
-  const snap=await getDoc(ref);
   const fbtn=document.getElementById('pub-follow-btn');
-  if(snap.exists()){
-    await deleteDoc(ref);
-    await updateDoc(doc(db,'wb_users',uid),{followers:increment(-1)});
-    await updateDoc(doc(db,'wb_users',G.user.uid),{following:increment(-1)});
-    fbtn.className='follow-btn not-following'; fbtn.textContent='متابعة';
+
+  // تحقق فوري من الحالة الحالية للزر بدلاً من Firestore
+  const isCurrentlyFollowing=fbtn.classList.contains('following') && fbtn.textContent!=='تم إرسال الطلب';
+
+  // تحديث الزر فوراً (optimistic)
+  if(isCurrentlyFollowing){
+    fbtn.className='follow-btn not-following';
+    fbtn.textContent='متابعة';
+    fbtn.disabled=true;
+    try{
+      await deleteDoc(doc(db,'wb_follows',followId));
+      await updateDoc(doc(db,'wb_users',uid),{followers:increment(-1)});
+      await updateDoc(doc(db,'wb_users',G.user.uid),{following:increment(-1)});
+      // تحديث عداد المتابعين في الواجهة
+      const fc=document.getElementById('pub-followers-n');
+      if(fc) fc.textContent=Math.max(0,(parseInt(fc.textContent)||1)-1);
+    }catch(e){ fbtn.className='follow-btn following'; fbtn.textContent='إلغاء المتابعة'; }
+    fbtn.disabled=false;
   } else {
-    // Check if private
-    const uSnap=await getDoc(doc(db,'wb_users',uid));
-    const targetUser=uSnap.data();
-    if(targetUser?.isPrivate){
-      await addDoc(collection(db,'wb_follow_requests'),{fromUserId:G.user.uid,fromUserName:ud?.name||'',fromUserAvatar:ud?.avatar||'',toUserId:uid,status:'pending',createdAt:serverTimestamp()});
-      await addDoc(collection(db,'wb_notifications'),{userId:uid,type:'follow_request',actorId:G.user.uid,actorName:ud?.name||'',read:false,createdAt:serverTimestamp()});
-      fbtn.textContent='تم إرسال الطلب'; fbtn.className='follow-btn following'; return;
-    }
-    await setDoc(ref,{followerId:G.user.uid,followingId:uid,createdAt:serverTimestamp()});
-    await updateDoc(doc(db,'wb_users',uid),{followers:increment(1)});
-    await updateDoc(doc(db,'wb_users',G.user.uid),{following:increment(1)});
-    // Notification
-    await addDoc(collection(db,'wb_notifications'),{userId:uid,type:'follow',actorId:G.user.uid,actorName:ud?.name||'',read:false,createdAt:serverTimestamp()});
-    fbtn.className='follow-btn following'; fbtn.textContent='إلغاء المتابعة';
+    fbtn.disabled=true;
+    try{
+      // هل الحساب خاص؟
+      const uSnap=await getDoc(doc(db,'wb_users',uid));
+      const targetUser=uSnap.data();
+      if(targetUser?.isPrivate){
+        // تحقق إذا أرسل طلب مسبقاً
+        const existingReq=await getDocs(query(collection(db,'wb_follow_requests'),where('fromUserId','==',G.user.uid),where('toUserId','==',uid),where('status','==','pending')));
+        if(!existingReq.empty){
+          fbtn.className='follow-btn following';
+          fbtn.textContent='تم إرسال الطلب';
+          fbtn.disabled=false;
+          return;
+        }
+        await addDoc(collection(db,'wb_follow_requests'),{fromUserId:G.user.uid,fromUserName:ud?.name||'',fromUserAvatar:ud?.avatar||'',toUserId:uid,status:'pending',createdAt:serverTimestamp()});
+        await addDoc(collection(db,'wb_notifications'),{userId:uid,type:'follow_request',actorId:G.user.uid,actorName:ud?.name||'',read:false,createdAt:serverTimestamp()});
+        fbtn.className='follow-btn following';
+        fbtn.textContent='⏳ تم إرسال الطلب';
+        fbtn.disabled=false;
+        return;
+      }
+      // متابعة عادية
+      fbtn.className='follow-btn following';
+      fbtn.textContent='إلغاء المتابعة';
+      await setDoc(doc(db,'wb_follows',followId),{followerId:G.user.uid,followingId:uid,createdAt:serverTimestamp()});
+      await updateDoc(doc(db,'wb_users',uid),{followers:increment(1)});
+      await updateDoc(doc(db,'wb_users',G.user.uid),{following:increment(1)});
+      await addDoc(collection(db,'wb_notifications'),{userId:uid,type:'follow',actorId:G.user.uid,actorName:ud?.name||'',read:false,createdAt:serverTimestamp()});
+      // تحديث عداد المتابعين
+      const fc=document.getElementById('pub-followers-n');
+      if(fc) fc.textContent=(parseInt(fc.textContent)||0)+1;
+    }catch(e){ fbtn.className='follow-btn not-following'; fbtn.textContent='متابعة'; }
+    fbtn.disabled=false;
   }
 };
 
