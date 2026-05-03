@@ -575,17 +575,58 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 </button>
 <div id="chat-screen">
   <div class="chat-hdr">
-    <button onclick="closeChatScreen()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#3d5236"><i class="fas fa-arrow-right"></i></button>
-    <div id="chat-other-av" style="width:38px;height:38px;border-radius:50%;background:#8aab7a;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0"></div>
-    <div style="flex:1">
-      <div id="chat-other-name" style="font-weight:800;font-size:.95rem"></div>
-      <div id="chat-other-status" style="font-size:.72rem;color:#6b7a5a"></div>
+    <button onclick="closeChatScreen()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#3d5236;padding:4px 8px"><i class="fas fa-arrow-right"></i></button>
+    <!-- اضغط على الصورة أو الاسم لفتح إعدادات المحادثة -->
+    <div onclick="openChatSettings()" style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;-webkit-tap-highlight-color:transparent">
+      <div id="chat-other-av" style="width:40px;height:40px;border-radius:50%;background:#8aab7a;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0"></div>
+      <div style="flex:1">
+        <div id="chat-other-name" style="font-weight:800;font-size:.95rem;display:flex;align-items:center;gap:4px"></div>
+        <div id="chat-other-status" style="font-size:.72rem;color:#6b7a5a"></div>
+      </div>
+      <i class="fas fa-chevron-left" style="color:#c0c8b8;font-size:.78rem;margin-left:4px"></i>
     </div>
   </div>
   <div class="chat-msgs" id="chat-msgs"></div>
   <div class="chat-input-bar">
     <input class="chat-inp" id="chat-inp" placeholder="اكتب رسالة..." onkeydown="if(event.key==='Enter')sendChatMsg()">
     <button class="chat-send" onclick="sendChatMsg()"><i class="fas fa-paper-plane"></i></button>
+  </div>
+</div>
+
+<!-- Chat Settings Modal -->
+
+<div class="overlay" id="chat-settings-overlay" onclick="closeOverlay('chat-settings-overlay')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div id="cs-av" style="width:60px;height:60px;border-radius:50%;background:#8aab7a;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1.4rem;flex-shrink:0"></div>
+      <div>
+        <div id="cs-name" style="font-weight:900;font-size:1rem;display:flex;align-items:center;gap:6px"></div>
+        <div id="cs-username" style="font-size:.78rem;color:#6b7a5a;margin-top:2px"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:18px">
+      <button onclick="csViewProfile()" style="flex:1;padding:11px;border-radius:14px;border:1.5px solid rgba(92,122,78,.3);background:transparent;color:#5c7a4e;font-family:Cairo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer"><i class="fas fa-user"></i> عرض الملف</button>
+      <button onclick="startChatWith(G.currentChatOtherUid)" style="flex:1;padding:11px;border-radius:14px;border:1.5px solid rgba(92,122,78,.3);background:transparent;color:#5c7a4e;font-family:Cairo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer"><i class="fas fa-comment-dots"></i> رسالة جديدة</button>
+    </div>
+    <div class="settings-section" style="margin:0">
+      <button class="settings-item" id="cs-mute-notif-btn" onclick="csMuteNotifs()" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-bell-slash" style="color:#6b7a5a"></i> كتم الإشعارات</div>
+        <span id="cs-mute-label" style="font-size:.75rem;color:#6b7a5a">إيقاف</span>
+      </button>
+      <button class="settings-item" onclick="csMuteUser()" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-volume-mute" style="color:#f39c12"></i> <span style="color:#f39c12">كتم المستخدم</span></div>
+        <span style="font-size:.75rem;color:#6b7a5a">لن تظهر منشوراته</span>
+      </button>
+      <button class="settings-item" onclick="csBlockUser()" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-ban" style="color:#e74c3c"></i> <span style="color:#e74c3c">حظر المستخدم</span></div>
+        <span style="font-size:.75rem;color:#6b7a5a">حظر كامل</span>
+      </button>
+      <button class="settings-item" onclick="csDeleteChat()" style="justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px"><i class="fas fa-trash" style="color:#e74c3c"></i> <span style="color:#e74c3c">حذف المحادثة</span></div>
+        <span style="font-size:.75rem;color:#6b7a5a">لا يمكن التراجع</span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1979,16 +2020,47 @@ function loadChats(){
 
 function openChat(chatId, otherId, otherUser){
   G.currentChatId=chatId; G.currentChatOtherUid=otherId;
-  document.getElementById('chat-other-name').textContent=otherUser.name||'مستخدم';
+  G._chatOtherUser=otherUser;
+  document.getElementById('chat-other-name').innerHTML=(otherUser.name||'مستخدم')+vbadge(otherUser.isVerified);
   document.getElementById('chat-other-status').textContent=otherUser.isOnline?'متصل الآن':'';
   const av=document.getElementById('chat-other-av');
   av.innerHTML=otherUser.avatar?`<img src="${otherUser.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(otherUser.name?.[0]||'م');
   document.getElementById('chat-screen').classList.add('open');
   loadChatMessages(chatId);
-  // Mark read
   if(chatId) updateDoc(doc(db,'wb_chats',chatId),{unreadCount:0}).catch(()=>{});
 }
 window.closeChatScreen=()=>{ document.getElementById('chat-screen').classList.remove('open'); if(G.unsubs.chat){G.unsubs.chat();G.unsubs.chat=null;} };
+
+window.openChatSettings=()=>{
+  const u=G._chatOtherUser||{};
+  document.getElementById('cs-av').innerHTML=u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(u.name?.[0]||'م');
+  document.getElementById('cs-name').innerHTML=(u.name||'مستخدم')+vbadge(u.isVerified);
+  document.getElementById('cs-username').textContent='@'+(u.username||'');
+  const mutedChats=G.userData?.mutedChats||[];
+  document.getElementById('cs-mute-label').textContent=mutedChats.includes(G.currentChatId)?'تشغيل':'إيقاف';
+  openOverlay('chat-settings-overlay');
+};
+window.csViewProfile=()=>{ closeOverlay('chat-settings-overlay'); openPubProfile(G.currentChatOtherUid); };
+window.csMuteNotifs=async()=>{
+  const mutedChats=[...(G.userData?.mutedChats||[])];
+  const idx=mutedChats.indexOf(G.currentChatId);
+  if(idx>=0){mutedChats.splice(idx,1);document.getElementById('cs-mute-label').textContent='إيقاف';}
+  else{mutedChats.push(G.currentChatId);document.getElementById('cs-mute-label').textContent='تشغيل';}
+  await updateDoc(doc(db,'wb_users',G.user.uid),{mutedChats});
+  G.userData={...G.userData,mutedChats};
+};
+window.csMuteUser=async()=>{ closeOverlay('chat-settings-overlay'); await muteUser(G.currentChatOtherUid); };
+window.csBlockUser=async()=>{ closeOverlay('chat-settings-overlay'); closeChatScreen(); await blockUser(G.currentChatOtherUid); };
+window.csDeleteChat=async()=>{
+  if(!confirm('حذف المحادثة وجميع رسائلها؟'))return;
+  try{
+    const msgs=await getDocs(query(collection(db,'wb_messages'),where('chatId','==',G.currentChatId)));
+    for(const d of msgs.docs) await deleteDoc(d.ref);
+    await deleteDoc(doc(db,'wb_chats',G.currentChatId));
+    closeOverlay('chat-settings-overlay');
+    closeChatScreen();
+  }catch(e){alert('خطأ: '+e.message);}
+};
 
 function loadChatMessages(chatId){
   const msgs=document.getElementById('chat-msgs');
@@ -2559,12 +2631,17 @@ window.doSearch=async(q)=>{
     const h=document.createElement('div');h.style.cssText='padding:10px 16px 6px;font-weight:800;font-size:.85rem;color:#6b7a5a';h.textContent='أشخاص';res.appendChild(h);
     users.forEach(u=>{
       const el=document.createElement('div');
-      el.style.cssText='display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(92,122,78,.1);cursor:pointer';
+      el.style.cssText='display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(92,122,78,.1);cursor:pointer;transition:background .15s;';
+      el.onmouseenter=()=>el.style.background='rgba(92,122,78,.05)';
+      el.onmouseleave=()=>el.style.background='transparent';
       el.onclick=()=>openPubProfile(u.uid);
       el.innerHTML=`
-        <div style="width:46px;height:46px;border-radius:50%;background:#8aab7a;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1rem">${u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م')}</div>
-        <div><div style="font-weight:800;font-size:.9rem;display:flex;align-items:center;gap:4px">${u.name}${vbadge(u.isVerified)}</div><div style="font-size:.75rem;color:#6b7a5a">@${u.username}</div></div>
-        <button onclick="event.stopPropagation();openPubProfile('${u.uid}')" style="margin-right:auto;padding:7px 16px;border-radius:20px;border:1px solid #5c7a4e;background:transparent;color:#5c7a4e;font-family:'Cairo',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer">ملف</button>`;
+        <div style="width:48px;height:48px;border-radius:50%;background:#8aab7a;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1rem">${u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م')}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:800;font-size:.9rem;display:flex;align-items:center;gap:4px">${u.name}${vbadge(u.isVerified)}</div>
+          <div style="font-size:.75rem;color:#6b7a5a">@${u.username} · ${u.followers||0} متابع</div>
+        </div>
+        <i class="fas fa-chevron-left" style="color:#c0c8b8;font-size:.75rem"></i>`;
       res.appendChild(el);
     });
   }
