@@ -154,16 +154,20 @@ body.dark .btn-secondary{background:#1e2a1a;color:#6a9b60;}
 .reel-empty i{font-size:3.5rem;color:#d4c9a8;margin-bottom:16px;}
 /* طبقة التحكم بالتشغيل */
 .reel-tap-overlay{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent;background:transparent;}
-/* أيقونة التشغيل/الإيقاف المؤقتة */
-.reel-center-icon{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .15s;}
-.reel-center-icon i{color:#fff;font-size:1.8rem;}
-.reel-center-icon.show{opacity:1;}
-/* أيقونة القلب الكبيرة عند الضغط مرتين */
-.reel-heart-pop{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);color:#e74c3c;font-size:5rem;pointer-events:none;z-index:20;opacity:0;}
-@keyframes heartPop{0%{transform:translate(-50%,-50%) scale(0);opacity:1}50%{transform:translate(-50%,-50%) scale(1.2);opacity:1}80%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(1.1);opacity:0}}
+/* أيقونة وسط الريل: كتم فوق، تشغيل تحت */
+.reel-tap-overlay{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent;background:transparent;}
+.reel-center-icons{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:14px;z-index:4;pointer-events:none;}
+.reel-mute-icon{width:52px;height:52px;border-radius:50%;background:rgba(80,80,80,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.reel-mute-icon i{color:#fff;font-size:1.2rem;}
+.reel-play-icon{width:64px;height:64px;border-radius:50%;background:rgba(80,80,80,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.reel-play-icon i{color:#fff;font-size:1.5rem;margin-right:-3px;}
+/* مخفية بشكل افتراضي */
+.reel-center-icons{opacity:0;transition:opacity .2s;}
+.reel-center-icons.show{opacity:1;}
+/* قلب اللايك المنبثق */
+.reel-heart-pop{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);color:#fff;font-size:5rem;pointer-events:none;z-index:20;opacity:0;text-shadow:0 2px 12px rgba(0,0,0,.5);}
+@keyframes heartPop{0%{transform:translate(-50%,-50%) scale(0);opacity:1}50%{transform:translate(-50%,-50%) scale(1.3);opacity:1}80%{transform:translate(-50%,-50%) scale(1.1);opacity:1}100%{transform:translate(-50%,-50%) scale(1.2);opacity:0}}
 .reel-heart-pop.animate{animation:heartPop .7s ease forwards;}
-/* زر الكتم */
-.reel-mute-btn{position:absolute;top:14px;left:14px;z-index:6;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);border:none;color:#fff;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 @keyframes rippleFade{0%{opacity:1;transform:translate(-50%,-50%) scale(.8)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5)}}
 /* زر نشر ريل */
 #new-reel-fab{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(92,122,78,.92);color:#fff;border:none;border-radius:20px;padding:8px 20px;font-family:‘Cairo’,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;z-index:100;display:none;backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);}
@@ -884,7 +888,7 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 
 <!-- ══════ FIREBASE + APP LOGIC ══════ -->
 
-<script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+<script src="https://unpkg.com/@daily-co/daily-js"></script>
 
 <script type="module">
 import { initializeApp }            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -1749,16 +1753,14 @@ function loadReels(){
           : `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.3);z-index:1"><i class="fas fa-clapperboard" style="font-size:4rem"></i></div>`
         }
         <div class="reel-overlay"></div>
-        <!-- طبقة التحكم: ضغطة = تشغيل/إيقاف، ضغطتان = لايك -->
         <div class="reel-tap-overlay" id="tap-${r.id}"></div>
-        <!-- أيقونة وسط: تشغيل/إيقاف -->
-        <div class="reel-center-icon" id="cicon-${r.id}"><i class="fas fa-pause"></i></div>
-        <!-- قلب اللايك المنبثق -->
+        <!-- أيقونتان بالوسط: كتم فوق، تشغيل/إيقاف تحت -->
+        <div class="reel-center-icons" id="cicons-${r.id}">
+          <div class="reel-mute-icon" id="micon-${r.id}"><i class="fas fa-volume-mute"></i></div>
+          <div class="reel-play-icon" id="picon-${r.id}"><i class="fas fa-play"></i></div>
+        </div>
+        <!-- قلب اللايك -->
         <div class="reel-heart-pop" id="heart-${r.id}"><i class="fas fa-heart"></i></div>
-        <!-- زر الكتم/رفع الصوت -->
-        <button class="reel-mute-btn" id="mute-${r.id}" onclick="toggleReelMute('${r.id}',this)">
-          <i class="fas fa-volume-mute"></i>
-        </button>
         <div class="reel-info">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <div onclick="openPubProfile('${r.authorId}')" style="width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.8);overflow:hidden;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer">
@@ -1803,13 +1805,21 @@ async function toggleReelLike(reelId, btn){
 }
 
 // ── Reel Tap Logic ──
+let _reelMuted = true; // مكتوم بشكل افتراضي
+
 function setupReelTap(el, reelId){
   const tapOverlay = el.querySelector(`#tap-${reelId}`);
-  const cicon      = el.querySelector(`#cicon-${reelId}`);
+  const cicons     = el.querySelector(`#cicons-${reelId}`);
+  const picon      = el.querySelector(`#picon-${reelId}`);
+  const micon      = el.querySelector(`#micon-${reelId}`);
   let lastTap = 0;
+  let hideTimer = null;
 
+  // عند الضغط على منطقة الكتم (الثلث العلوي)
   tapOverlay.addEventListener('click', (e) => {
     e.stopPropagation();
+    const rect = tapOverlay.getBoundingClientRect();
+    const y = e.clientY - rect.top;
     const now = Date.now();
     const delta = now - lastTap;
     lastTap = now;
@@ -1817,48 +1827,51 @@ function setupReelTap(el, reelId){
     if(delta < 300){
       // ضغطتان = لايك
       const likeBtn = el.querySelector(`#like-btn-${reelId}`);
-      if(likeBtn && !likeBtn.classList.contains('liked')){
-        toggleReelLike(reelId, likeBtn);
-      }
-      // قلب منبثق
+      if(likeBtn && !likeBtn.classList.contains('liked')) toggleReelLike(reelId, likeBtn);
       const heart = el.querySelector(`#heart-${reelId}`);
-      if(heart){
-        heart.classList.remove('animate');
-        void heart.offsetWidth; // reflow
-        heart.classList.add('animate');
-      }
+      if(heart){ heart.classList.remove('animate'); void heart.offsetWidth; heart.classList.add('animate'); }
+      return;
+    }
+
+    const video = el.querySelector('video.reel-video');
+
+    // الثلث العلوي = تبديل الكتم
+    if(y < rect.height * 0.35){
+      if(video){ video.muted = !video.muted; _reelMuted = video.muted; }
+      // تحديث أيقونة الكتم
+      if(micon) micon.querySelector('i').className = _reelMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+      showIcons(cicons, hideTimer, false); // أظهر الأيقونتين فقط
+      return;
+    }
+
+    // باقي الشاشة = تشغيل/إيقاف
+    if(!video) return;
+    if(video.paused){
+      video.play().catch(()=>{});
+      if(picon) picon.querySelector('i').className='fas fa-play';
+      showIconsThenHide(cicons);
     } else {
-      // ضغطة واحدة = تشغيل/إيقاف
-      const video = el.querySelector('video.reel-video');
-      if(!video) return;
-      if(video.paused){
-        video.play().catch(()=>{});
-        // أخفِ أيقونة الإيقاف مباشرة
-        if(cicon){ cicon.querySelector('i').className='fas fa-play'; showThenHideIcon(cicon); }
-      } else {
-        video.pause();
-        // أظهر أيقونة الإيقاف وابقِها
-        if(cicon){ cicon.querySelector('i').className='fas fa-pause'; cicon.classList.add('show'); }
-      }
+      video.pause();
+      if(picon) picon.querySelector('i').className='fas fa-pause';
+      // أظهر الأيقونتين وابقِهما
+      cicons.classList.add('show');
     }
   });
 }
 
-function showThenHideIcon(iconEl){
-  iconEl.classList.add('show');
-  setTimeout(()=>iconEl.classList.remove('show'), 600);
+function showIconsThenHide(iconsEl){
+  iconsEl.classList.add('show');
+  setTimeout(()=>iconsEl.classList.remove('show'), 800);
 }
+function showIcons(iconsEl){ iconsEl.classList.add('show'); setTimeout(()=>iconsEl.classList.remove('show'),1200); }
 
 window.toggleReelMute = (reelId, btn) => {
-  // كتم/رفع الصوت لجميع فيديوهات الريل الظاهرة
   const videos = document.querySelectorAll('#reels-list video.reel-video');
-  const i = btn.querySelector('i');
-  const isMuted = videos[0]?.muted !== false;
-  videos.forEach(v => v.muted = !isMuted);
-  i.className = isMuted ? 'fas fa-volume-up' : 'fas fa-volume-mute';
-  // تحديث كل أزرار الكتم
-  document.querySelectorAll('[id^="mute-"]').forEach(b=>{
-    b.querySelector('i').className = isMuted ? 'fas fa-volume-up' : 'fas fa-volume-mute';
+  _reelMuted = !_reelMuted;
+  videos.forEach(v => v.muted = _reelMuted);
+  // تحديث كل أيقونات الكتم
+  document.querySelectorAll('[id^="micon-"]').forEach(m=>{
+    m.querySelector('i').className = _reelMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
   });
 };
 
@@ -1869,21 +1882,23 @@ function setupReelAutoplay(){
   if(G._reelObserver) G._reelObserver.disconnect();
   G._reelObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      const item  = entry.target;
-      const video = item.querySelector('video.reel-video');
-      const cicon = item.querySelector('[id^="cicon-"]');
+      const item   = entry.target;
+      const video  = item.querySelector('video.reel-video');
+      const cicons = item.querySelector('[id^="cicons-"]');
+      const micon  = item.querySelector('[id^="micon-"]');
+      const picon  = item.querySelector('[id^="picon-"]');
       if(!video) return;
       if(entry.isIntersecting && entry.intersectionRatio > 0.6){
-        video.muted = true;
+        video.muted = true; _reelMuted = true;
         video.play().catch(()=>{});
-        // أخفِ أيقونة الإيقاف
-        if(cicon) cicon.classList.remove('show');
-        // زر الكتم: يعكس الحالة
-        const muteBtn = item.querySelector('[id^="mute-"]');
-        if(muteBtn) muteBtn.querySelector('i').className = 'fas fa-volume-mute';
+        // أظهر أيقونتي الكتم والتشغيل ثم أخفِهما
+        if(picon) picon.querySelector('i').className='fas fa-play';
+        if(micon) micon.querySelector('i').className='fas fa-volume-mute';
+        if(cicons){ cicons.classList.add('show'); setTimeout(()=>cicons.classList.remove('show'),1200); }
       } else {
         video.pause();
         video.currentTime = 0;
+        if(cicons) cicons.classList.remove('show');
       }
     });
   }, { threshold: 0.6 });
@@ -3338,180 +3353,192 @@ function timeAgo(date){
 }
 
 // ══════════════════════════════
-// CALL SYSTEM — ZegoCloud
+// CALL SYSTEM — Daily.co (مجاني 10,000 دقيقة/شهر)
 // ══════════════════════════════
-const ZEGO_APP_ID   = 937924684;
-const ZEGO_APP_SIGN = '7f1da0ee48d5e5753cf7cac828cb6c7c89a38b3a06d8735caf38d79c55dbf981';
+const DAILY_API_KEY = '2b8dadd836d4b1d58a8628f468d9882f90c18ae867a96d47bf54b4a8fd2675d4';
 
 const CALL = {
-  zp: null,
-  type: 'voice',      // 'voice' | 'video'
+  frame: null,
+  type: 'voice',
   roomId: null,
-  isMuted: false,
-  isCamOff: false,
+  roomUrl: null,
   timer: null,
   seconds: 0,
   isIncoming: false,
+  unsubStatus: null,
 };
 
-// توليد roomId فريد لكل محادثة
-function genRoomId(uid1, uid2){ return 'room_'+[uid1,uid2].sort().join('_'); }
+function genRoomId(uid1,uid2){ return 'wb-'+[uid1,uid2].sort().join('-').substring(0,40); }
 
-// بدء مكالمة
+// إنشاء غرفة عبر Daily.co API
+async function createDailyRoom(roomName){
+  try{
+    const res = await fetch('https://api.daily.co/v1/rooms',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${DAILY_API_KEY}`},
+      body:JSON.stringify({
+        name: roomName,
+        privacy: 'private',
+        properties:{
+          exp: Math.floor(Date.now()/1000) + 3600, // تنتهي بعد ساعة
+          max_participants: 2,
+          enable_chat: false,
+          enable_screenshare: false,
+          start_video_off: false,
+          start_audio_off: false,
+        }
+      })
+    });
+    const data = await res.json();
+    return data.url || null;
+  }catch(e){
+    console.error('Daily.co room error:',e);
+    return null;
+  }
+}
+
+// ── بدء مكالمة ──
 window.startCall=async(type)=>{
   if(!G.user||!G.currentChatOtherUid){ alert('افتح محادثة أولاً'); return; }
-  CALL.type=type;
+  CALL.type=type; CALL.isIncoming=false;
   CALL.roomId=genRoomId(G.user.uid, G.currentChatOtherUid);
 
-  // أرسل إشعار المكالمة للطرف الآخر عبر Firestore
+  document.getElementById('call-status-text').textContent='جاري إنشاء الغرفة...';
+  openCallScreen(type, false);
+
+  // إنشاء غرفة Daily.co
+  CALL.roomUrl = await createDailyRoom(CALL.roomId);
+  if(!CALL.roomUrl){
+    // في حال فشل API استخدم رابط مباشر
+    CALL.roomUrl = `https://webook.daily.co/${CALL.roomId}`;
+  }
+
+  // أرسل إشعار للطرف الآخر
   await setDoc(doc(db,'wb_calls',CALL.roomId),{
-    callerId:G.user.uid,
-    callerName:G.userData?.name||'',
+    callerId:G.user.uid, callerName:G.userData?.name||'',
     callerAvatar:G.userData?.avatar||'',
     calleeId:G.currentChatOtherUid,
     type, status:'ringing',
     roomId:CALL.roomId,
+    roomUrl:CALL.roomUrl,
     createdAt:serverTimestamp()
   });
 
-  openCallScreen(type, false);
+  joinDailyRoom(CALL.roomUrl, type);
 };
 
+// ── شاشة المكالمة ──
 function openCallScreen(type, isIncoming){
   const u=G._chatOtherUser||{};
-  const screen=document.getElementById('call-screen');
-  screen.style.display='flex';
-
-  // معلومات المتصل
+  document.getElementById('call-screen').style.display='flex';
   document.getElementById('call-other-av-big').innerHTML=u.avatar
-    ?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`
-    :(u.name?.[0]||'م');
+    ?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م');
   document.getElementById('call-other-name-big').textContent=u.name||'مكالمة';
-  document.getElementById('call-status-text').textContent=isIncoming?'مكالمة واردة...':'جاري الاتصال...';
+  document.getElementById('call-status-text').textContent=isIncoming?'جاري الاتصال...':'جاري الاتصال...';
   document.getElementById('call-timer').style.display='none';
-
-  // إخفاء/إظهار زر الكاميرا
-  document.getElementById('call-cam-btn').style.display=type==='video'?'flex':'flex';
-  if(type==='voice'){
-    document.getElementById('call-remote-video').style.background='#1a1a2e';
-    document.getElementById('call-local-video').style.display='none';
-  }
-
-  // تهيئة ZegoCloud
-  initZego(type, isIncoming);
+  document.getElementById('call-local-video').style.display='none';
+  document.getElementById('call-remote-video').innerHTML='';
 }
 
-async function initZego(type, isIncoming){
-  try{
-    const { ZegoUIKitPrebuilt } = window;
-    if(!ZegoUIKitPrebuilt){ console.error('ZegoCloud SDK not loaded'); return; }
+// ── الدخول للغرفة ──
+function joinDailyRoom(roomUrl, type){
+  // تنظيف القديم
+  if(CALL.frame){ try{CALL.frame.destroy();}catch(e){} CALL.frame=null; }
 
-    const userId = G.user.uid;
-    const userName = G.userData?.name||'مستخدم';
-    const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-      ZEGO_APP_ID, ZEGO_APP_SIGN, CALL.roomId, userId, userName
-    );
+  const container = document.getElementById('call-remote-video');
+  container.innerHTML='';
 
-    CALL.zp = ZegoUIKitPrebuilt.create(kitToken);
+  // إنشاء Daily iframe
+  CALL.frame = window.DailyIframe?.createFrame(container,{
+    iframeStyle:{
+      width:'100%', height:'100%',
+      border:'none', borderRadius:'0',
+      background:'#1a1a2e',
+    },
+    showLeaveButton: false,
+    showFullscreenButton: false,
+    showLocalVideo: type==='video',
+    showParticipantsBar: false,
+    activeSpeakerMode: true,
+  });
 
-    const config = type==='video' ? {
-      container: document.getElementById('call-remote-video'),
-      scenario:{ mode: ZegoUIKitPrebuilt.VideoConference },
-      showPreJoinView: false,
-      showLeaveRoomConfirmDialog: false,
-      turnOnCameraWhenJoining: true,
-      turnOnMicrophoneWhenJoining: true,
-      showRoomDetailsButton: false,
-      showTextChat: false,
-      showUserList: false,
-      maxUsers: 2,
-      layout: 'Auto',
-      showLayoutButton: false,
-      onLeaveRoom: ()=>endCall(),
-    } : {
-      container: document.getElementById('call-remote-video'),
-      scenario:{ mode: ZegoUIKitPrebuilt.OneONoneCall },
-      showPreJoinView: false,
-      showLeaveRoomConfirmDialog: false,
-      turnOnCameraWhenJoining: false,
-      turnOnMicrophoneWhenJoining: true,
-      showRoomDetailsButton: false,
-      showTextChat: false,
-      showUserList: false,
-      maxUsers: 2,
-      onLeaveRoom: ()=>endCall(),
-    };
+  if(!CALL.frame){
+    // Daily SDK غير محمّل — استخدم iframe مباشر
+    container.innerHTML=`<iframe src="${roomUrl}" style="width:100%;height:100%;border:none" allow="camera;microphone;autoplay" allowfullscreen></iframe>`;
+    startCallTimer();
+    return;
+  }
 
-    CALL.zp.joinRoom(config);
+  CALL.frame
+    .join({ url: roomUrl, userName: G.userData?.name||'مستخدم' })
+    .then(()=>{ startCallTimer(); document.getElementById('call-status-text').textContent='متصل ✓'; })
+    .catch(e=>{ console.error(e); endCall(); });
 
-    // مؤقت المكالمة
-    CALL.seconds=0;
-    clearInterval(CALL.timer);
-    CALL.timer=setInterval(()=>{
-      CALL.seconds++;
-      const m=String(Math.floor(CALL.seconds/60)).padStart(2,'0');
-      const s=String(CALL.seconds%60).padStart(2,'0');
-      const timer=document.getElementById('call-timer');
-      if(timer){ timer.style.display='block'; timer.textContent=`${m}:${s}`; }
-      document.getElementById('call-status-text').textContent='متصل';
-    },1000);
+  CALL.frame.on('left-meeting', ()=>endCall());
+  CALL.frame.on('participant-joined', ()=>{ startCallTimer(); });
+}
 
-  }catch(e){ console.error('Zego error:',e); endCall(); }
+function startCallTimer(){
+  CALL.seconds=0;
+  clearInterval(CALL.timer);
+  document.getElementById('call-status-text').textContent='متصل ✓';
+  CALL.timer=setInterval(()=>{
+    CALL.seconds++;
+    const m=String(Math.floor(CALL.seconds/60)).padStart(2,'0');
+    const s=String(CALL.seconds%60).padStart(2,'0');
+    const el=document.getElementById('call-timer');
+    if(el){el.style.display='block';el.textContent=`${m}:${s}`;}
+  },1000);
 }
 
 window.endCall=async()=>{
   clearInterval(CALL.timer);
-  try{ CALL.zp?.destroy?.(); }catch(e){}
-  CALL.zp=null;
+  CALL.unsubStatus?.();
+  try{ CALL.frame?.leave?.(); CALL.frame?.destroy?.(); }catch(e){}
+  CALL.frame=null;
   document.getElementById('call-screen').style.display='none';
   document.getElementById('call-remote-video').innerHTML='';
   document.getElementById('call-local-video').innerHTML='';
-  // حذف سجل المكالمة
-  if(CALL.roomId) await deleteDoc(doc(db,'wb_calls',CALL.roomId)).catch(()=>{});
-  CALL.roomId=null;
+  if(CALL.roomId){
+    await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'ended'}).catch(()=>{});
+    CALL.roomId=null; CALL.roomUrl=null;
+  }
 };
 
 window.toggleCallMute=()=>{
   CALL.isMuted=!CALL.isMuted;
+  CALL.frame?.setLocalAudio?.(!CALL.isMuted);
   const btn=document.getElementById('call-mute-btn');
-  btn.style.background=CALL.isMuted?'rgba(231,76,60,.4)':'rgba(255,255,255,.15)';
+  btn.style.background=CALL.isMuted?'rgba(231,76,60,.5)':'rgba(255,255,255,.15)';
   btn.querySelector('i').className=CALL.isMuted?'fas fa-microphone-slash':'fas fa-microphone';
 };
 
 window.toggleCallCamera=()=>{
   CALL.isCamOff=!CALL.isCamOff;
+  CALL.frame?.setLocalVideo?.(!CALL.isCamOff);
   const btn=document.getElementById('call-cam-btn');
-  btn.style.background=CALL.isCamOff?'rgba(231,76,60,.4)':'rgba(255,255,255,.15)';
+  btn.style.background=CALL.isCamOff?'rgba(231,76,60,.5)':'rgba(255,255,255,.15)';
   btn.querySelector('i').className=CALL.isCamOff?'fas fa-video-slash':'fas fa-video';
 };
 
-// الاستماع للمكالمات الواردة
+// ── الاستماع للمكالمات الواردة ──
 function listenIncomingCalls(){
   if(!G.user)return;
   if(G.unsubs.calls) G.unsubs.calls();
   const q=query(collection(db,'wb_calls'),where('calleeId','==',G.user.uid),where('status','==','ringing'));
   G.unsubs.calls=onSnapshot(q,snap=>{
-    if(snap.empty){
-      document.getElementById('incoming-call').style.display='none';
-      return;
-    }
+    if(snap.empty){ document.getElementById('incoming-call').style.display='none'; return; }
     snap.forEach(d=>{
       const call={id:d.id,...d.data()};
-      // تجاهل المكالمات القديمة (أكثر من 30 ثانية)
       const age=(Date.now()-(call.createdAt?.seconds||0)*1000);
-      if(age>30000) return;
-
-      CALL.roomId=call.roomId;
-      CALL.type=call.type;
-
+      if(age>45000) return;
+      CALL.roomId=call.roomId; CALL.type=call.type;
+      CALL.roomUrl=call.roomUrl; CALL.isIncoming=true;
       document.getElementById('inc-caller-av').innerHTML=call.callerAvatar
-        ?`<img src="${call.callerAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-        :(call.callerName?.[0]||'م');
+        ?`<img src="${call.callerAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(call.callerName?.[0]||'م');
       document.getElementById('inc-caller-name').textContent=call.callerName||'مجهول';
       document.getElementById('inc-call-type').textContent=call.type==='video'?'📹 مكالمة فيديو':'📞 مكالمة صوتية';
       document.getElementById('incoming-call').style.display='block';
-
-      // بيانات المتصل للشاشة
       G._chatOtherUser={name:call.callerName,avatar:call.callerAvatar,isVerified:false};
       G.currentChatOtherUid=call.callerId;
     });
@@ -3522,6 +3549,7 @@ window.acceptIncomingCall=async()=>{
   document.getElementById('incoming-call').style.display='none';
   await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'accepted'});
   openCallScreen(CALL.type, true);
+  joinDailyRoom(CALL.roomUrl, CALL.type);
 };
 
 window.rejectIncomingCall=async()=>{
