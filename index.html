@@ -917,8 +917,6 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 
 <!-- ══════ FIREBASE + APP LOGIC ══════ -->
 
-<script src="https://unpkg.com/@daily-co/daily-js"></script>
-
 <script type="module">
 import { initializeApp }            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile }
@@ -1278,6 +1276,7 @@ window.submitStory = async () => {
       authorId:u.uid, authorName:ud.name,
       authorAvatar:ud.avatar||'',
       authorVerified:ud.isVerified||false,
+      authorIsAdmin:ud.isAdmin||false,
       createdAt:serverTimestamp()
     });
     document.getElementById('ns-text').value='';
@@ -1433,7 +1432,7 @@ function buildStoryGroups(snap){
   const byUser = {};
   snap.forEach(d => {
     const s = {id:d.id,...d.data()};
-    if(!byUser[s.authorId]) byUser[s.authorId] = {uid:s.authorId, name:s.authorName, avatar:s.authorAvatar||'', verified:s.authorVerified||false, stories:[]};
+    if(!byUser[s.authorId]) byUser[s.authorId] = {uid:s.authorId, name:s.authorName, avatar:s.authorAvatar||'', verified:s.authorVerified||false, isAdmin:s.authorIsAdmin||false, stories:[]};
     byUser[s.authorId].stories.push(s);
   });
   // Sort each user's stories oldest→newest
@@ -1466,7 +1465,7 @@ function svRender(){
   document.getElementById('sv-av').innerHTML = group.avatar
     ? `<img src="${group.avatar}" style="width:100%;height:100%;object-fit:cover">`
     : (group.name?.[0]||'م');
-  document.getElementById('sv-name').innerHTML = (group.name||'مستخدم') + vbadge(group.verified);
+  document.getElementById('sv-name').innerHTML = (group.name||'مستخدم') + vbadge(group.verified) + (group.isAdmin?'<span style="background:#e74c3c;color:#fff;border-radius:6px;padding:1px 5px;font-size:.55rem;font-weight:700;margin-right:2px">أدمن</span>':'');
   document.getElementById('sv-time').textContent = story.createdAt?.toDate ? timeAgo(story.createdAt.toDate()) : '';
 
   // Progress bars
@@ -1793,7 +1792,7 @@ function buildPostCard(post, forceOwner=false){
         ${post.authorAvatar?`<img src="${post.authorAvatar}">`:(post.authorName?.[0]||'م')}
       </div>
       <div class="post-meta">
-        <div class="post-uname" onclick="openPubProfile('${post.authorId}')" style="display:flex;align-items:center;gap:4px">${post.authorName||'مستخدم'}${vbadge(post.authorVerified)}</div>
+        <div class="post-uname" onclick="openPubProfile('${post.authorId}')" style="display:flex;align-items:center;gap:4px">${post.authorName||'مستخدم'}${vbadge(post.authorVerified)}${post.authorIsAdmin?'<span style="background:#e74c3c;color:#fff;border-radius:6px;padding:1px 5px;font-size:.55rem;font-weight:700">أدمن</span>':''}</div>
         <div class="post-time">${t}</div>
       </div>
       ${isOwner ? `
@@ -1913,6 +1912,7 @@ window.submitPost = async () => {
       authorUsername:G.userData.username||'',
       authorAvatar:G.userData.avatar||'',
       authorVerified:G.userData.isVerified||false,
+      authorIsAdmin:G.userData.isAdmin||false,
       likes:0, likedBy:[], comments:0, savedBy:[],
       tags, mentions, createdAt:serverTimestamp()
     });
@@ -1966,7 +1966,7 @@ function loadReels(){
               ${r.authorAvatar?`<img src="${r.authorAvatar}" style="width:100%;height:100%;object-fit:cover">`:(r.authorName?.[0]||'م')}
             </div>
             <div>
-              <div style="color:#fff;font-weight:800;font-size:.92rem;display:flex;align-items:center;gap:4px">${r.authorName||'مستخدم'}${vbadge(r.authorVerified)}</div>
+              <div style="color:#fff;font-weight:800;font-size:.92rem;display:flex;align-items:center;gap:4px">${r.authorName||'مستخدم'}${vbadge(r.authorVerified)}${r.authorIsAdmin?'<span style="background:#e74c3c;color:#fff;border-radius:6px;padding:1px 5px;font-size:.55rem;font-weight:700">أدمن</span>':''}</div>
               <div style="color:rgba(255,255,255,.65);font-size:.75rem">@${r.authorUsername||''}</div>
             </div>
           </div>
@@ -2081,11 +2081,15 @@ function setupReelAutoplay(){
       const picon  = item.querySelector('[id^="picon-"]');
       if(!video) return;
       if(entry.isIntersecting && entry.intersectionRatio > 0.6){
-        video.muted = true; _reelMuted = true;
-        video.play().catch(()=>{});
+        video.muted = _reelMuted; // استخدم الحالة الحالية
+        video.play().catch(()=>{
+          // إذا رفض المتصفح بسبب الصوت، شغّل بدون صوت
+          video.muted = true; _reelMuted = true;
+          video.play().catch(()=>{});
+        });
         // أظهر أيقونتي الكتم والتشغيل ثم أخفِهما
         if(picon) picon.querySelector('i').className='fas fa-play';
-        if(micon) micon.querySelector('i').className='fas fa-volume-mute';
+        if(micon) micon.querySelector('i').className = _reelMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
         if(cicons){ cicons.classList.add('show'); setTimeout(()=>cicons.classList.remove('show'),1200); }
       } else {
         video.pause();
@@ -2202,6 +2206,7 @@ window.submitReel = async () => {
       authorUsername:G.userData.username||'',
       authorAvatar:G.userData.avatar||'',
       authorVerified:G.userData.isVerified||false,
+      authorIsAdmin:G.userData.isAdmin||false,
       likes:0, likedBy:[], comments:0,
       createdAt:serverTimestamp()
     });
@@ -2899,11 +2904,13 @@ window.openComments=async(postId)=>{
       const el=document.createElement('div');
       el.style.cssText='display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(92,122,78,.1)';
       el.innerHTML=`
-        <div style="width:36px;height:36px;border-radius:50%;background:#8aab7a;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.9rem">
+        <div onclick="openPubProfile('${c.authorId}')" style="width:36px;height:36px;border-radius:50%;background:#8aab7a;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.9rem;cursor:pointer">
           ${c.authorAvatar?`<img src="${c.authorAvatar}" style="width:100%;height:100%;object-fit:cover">`:(c.authorName?.[0]||'م')}
         </div>
         <div style="flex:1">
-          <div style="font-weight:700;font-size:.8rem">${c.authorName||'مستخدم'}</div>
+          <div style="font-weight:700;font-size:.8rem;display:flex;align-items:center;gap:4px">
+            ${c.authorName||'مستخدم'}${vbadge(c.authorVerified)}${c.authorIsAdmin?'<span style="background:#e74c3c;color:#fff;border-radius:6px;padding:1px 5px;font-size:.55rem;font-weight:700">أدمن</span>':''}
+          </div>
           <div style="font-size:.85rem;line-height:1.5;margin-top:2px">${c.text}</div>
           <div style="font-size:.7rem;color:#6b7a5a;margin-top:3px">${c.createdAt?.toDate?timeAgo(c.createdAt.toDate()):''}</div>
         </div>`;
@@ -2917,7 +2924,7 @@ window.submitComment=async()=>{
   const text=inp.value.trim(); if(!text||!G.currentPostId)return;
   inp.value='';
   try{
-    await addDoc(collection(db,'wb_comments'),{postId:G.currentPostId,text,authorId:G.user.uid,authorName:G.userData?.name||'',authorAvatar:G.userData?.avatar||'',createdAt:serverTimestamp()});
+    await addDoc(collection(db,'wb_comments'),{postId:G.currentPostId,text,authorId:G.user.uid,authorName:G.userData?.name||'',authorAvatar:G.userData?.avatar||'',authorVerified:G.userData?.isVerified||false,authorIsAdmin:G.userData?.isAdmin||false,createdAt:serverTimestamp()});
     await updateDoc(doc(db,'wb_posts',G.currentPostId),{comments:increment(1)});
     // Notification
     const pSnap=await getDoc(doc(db,'wb_posts',G.currentPostId));
@@ -3547,133 +3554,152 @@ function timeAgo(date){
 // ══════════════════════════════
 // CALL SYSTEM — Daily.co (مجاني 10,000 دقيقة/شهر)
 // ══════════════════════════════
-const DAILY_API_KEY = '2b8dadd836d4b1d58a8628f468d9882f90c18ae867a96d47bf54b4a8fd2675d4';
-
+// ══════════════════════════════
+// CALL SYSTEM — WebRTC + Firebase Signaling
+// ══════════════════════════════
 const CALL = {
-  frame: null,
-  type: 'voice',
-  roomId: null,
-  roomUrl: null,
-  timer: null,
-  seconds: 0,
-  isIncoming: false,
-  unsubStatus: null,
+  pc: null, localStream: null,
+  type: 'voice', roomId: null,
+  isMuted: false, isCamOff: false,
+  timer: null, seconds: 0,
+  unsubAnswer: null, unsubIce: null,
 };
 
-function genRoomId(uid1,uid2){ return 'wb-'+[uid1,uid2].sort().join('-').substring(0,40); }
+const ICE = { iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun2.l.google.com:19302'},
+  {urls:'stun:stun4.l.google.com:19302'},
+]};
 
-// إنشاء غرفة عبر Daily.co API
-async function createDailyRoom(roomName){
-  try{
-    const res = await fetch('https://api.daily.co/v1/rooms',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${DAILY_API_KEY}`},
-      body:JSON.stringify({
-        name: roomName,
-        privacy: 'private',
-        properties:{
-          exp: Math.floor(Date.now()/1000) + 3600, // تنتهي بعد ساعة
-          max_participants: 2,
-          enable_chat: false,
-          enable_screenshare: false,
-          start_video_off: false,
-          start_audio_off: false,
-        }
-      })
-    });
-    const data = await res.json();
-    return data.url || null;
-  }catch(e){
-    console.error('Daily.co room error:',e);
-    return null;
-  }
-}
+function genRoomId(a,b){ return 'call_'+[a,b].sort().join('_'); }
 
 // ── بدء مكالمة ──
 window.startCall=async(type)=>{
-  if(!G.user||!G.currentChatOtherUid){ alert('افتح محادثة أولاً'); return; }
-  CALL.type=type; CALL.isIncoming=false;
-  CALL.roomId=genRoomId(G.user.uid, G.currentChatOtherUid);
-
-  document.getElementById('call-status-text').textContent='جاري إنشاء الغرفة...';
-  openCallScreen(type, false);
-
-  // إنشاء غرفة Daily.co
-  CALL.roomUrl = await createDailyRoom(CALL.roomId);
-  if(!CALL.roomUrl){
-    // في حال فشل API استخدم رابط مباشر
-    CALL.roomUrl = `https://webook.daily.co/${CALL.roomId}`;
-  }
-
-  // أرسل إشعار للطرف الآخر
+  if(!G.user||!G.currentChatOtherUid){alert('افتح محادثة أولاً');return;}
+  CALL.type=type;
+  CALL.roomId=genRoomId(G.user.uid,G.currentChatOtherUid);
+  // احذف أي مكالمة قديمة
+  await deleteDoc(doc(db,'wb_calls',CALL.roomId)).catch(()=>{});
+  // أنشئ سجل المكالمة
   await setDoc(doc(db,'wb_calls',CALL.roomId),{
     callerId:G.user.uid, callerName:G.userData?.name||'',
     callerAvatar:G.userData?.avatar||'',
     calleeId:G.currentChatOtherUid,
-    type, status:'ringing',
-    roomId:CALL.roomId,
-    roomUrl:CALL.roomUrl,
+    type, status:'ringing', roomId:CALL.roomId,
     createdAt:serverTimestamp()
   });
-
-  joinDailyRoom(CALL.roomUrl, type);
+  openCallScreen(type,false);
+  await initWebRTC(true,type);
 };
 
 // ── شاشة المكالمة ──
-function openCallScreen(type, isIncoming){
+function openCallScreen(type,isIncoming){
   const u=G._chatOtherUser||{};
   document.getElementById('call-screen').style.display='flex';
   document.getElementById('call-other-av-big').innerHTML=u.avatar
     ?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م');
   document.getElementById('call-other-name-big').textContent=u.name||'مكالمة';
-  document.getElementById('call-status-text').textContent=isIncoming?'جاري الاتصال...':'جاري الاتصال...';
+  document.getElementById('call-status-text').textContent='جاري الاتصال...';
   document.getElementById('call-timer').style.display='none';
-  document.getElementById('call-local-video').style.display='none';
+  document.getElementById('call-local-video').style.display=type==='video'?'block':'none';
   document.getElementById('call-remote-video').innerHTML='';
 }
 
-// ── الدخول للغرفة ──
-function joinDailyRoom(roomUrl, type){
-  // تنظيف القديم
-  if(CALL.frame){ try{CALL.frame.destroy();}catch(e){} CALL.frame=null; }
+// ── WebRTC ──
+async function initWebRTC(isCaller,type){
+  CALL.pc=new RTCPeerConnection(ICE);
 
-  const container = document.getElementById('call-remote-video');
-  container.innerHTML='';
-
-  // إنشاء Daily iframe
-  CALL.frame = window.DailyIframe?.createFrame(container,{
-    iframeStyle:{
-      width:'100%', height:'100%',
-      border:'none', borderRadius:'0',
-      background:'#1a1a2e',
-    },
-    showLeaveButton: false,
-    showFullscreenButton: false,
-    showLocalVideo: type==='video',
-    showParticipantsBar: false,
-    activeSpeakerMode: true,
-  });
-
-  if(!CALL.frame){
-    // Daily SDK غير محمّل — استخدم iframe مباشر
-    container.innerHTML=`<iframe src="${roomUrl}" style="width:100%;height:100%;border:none" allow="camera;microphone;autoplay" allowfullscreen></iframe>`;
-    startCallTimer();
-    return;
+  // الحصول على الميديا
+  try{
+    CALL.localStream=await navigator.mediaDevices.getUserMedia({
+      audio:true, video:type==='video'
+    });
+  }catch(e){
+    try{ CALL.localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }
+    catch(e2){ alert('لا يمكن الوصول للميكروفون'); endCall(); return; }
   }
 
-  CALL.frame
-    .join({ url: roomUrl, userName: G.userData?.name||'مستخدم' })
-    .then(()=>{ startCallTimer(); document.getElementById('call-status-text').textContent='متصل ✓'; })
-    .catch(e=>{ console.error(e); endCall(); });
+  // إظهار الفيديو المحلي
+  if(type==='video'&&CALL.localStream.getVideoTracks().length){
+    const lv=document.getElementById('call-local-video');
+    lv.innerHTML='<video autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px"></video>';
+    lv.querySelector('video').srcObject=CALL.localStream;
+  }
 
-  CALL.frame.on('left-meeting', ()=>endCall());
-  CALL.frame.on('participant-joined', ()=>{ startCallTimer(); });
+  // إضافة tracks
+  CALL.localStream.getTracks().forEach(t=>CALL.pc.addTrack(t,CALL.localStream));
+
+  // استقبال stream الطرف الآخر
+  CALL.pc.ontrack=e=>{
+    const rv=document.getElementById('call-remote-video');
+    if(type==='video'){
+      rv.innerHTML='<video autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>';
+      rv.querySelector('video').srcObject=e.streams[0];
+    } else {
+      rv.innerHTML='<audio autoplay></audio>';
+      rv.querySelector('audio').srcObject=e.streams[0];
+    }
+    document.getElementById('call-status-text').textContent='متصل ✓';
+    startCallTimer();
+  };
+
+  // ICE candidates
+  CALL.pc.onicecandidate=async ev=>{
+    if(!ev.candidate) return;
+    const col=isCaller?'callerIce':'calleeIce';
+    await addDoc(collection(db,'wb_calls',CALL.roomId,col),ev.candidate.toJSON());
+  };
+
+  const callRef=doc(db,'wb_calls',CALL.roomId);
+
+  if(isCaller){
+    // إنشاء offer
+    const offer=await CALL.pc.createOffer();
+    await CALL.pc.setLocalDescription(offer);
+    await updateDoc(callRef,{offer:{type:offer.type,sdp:offer.sdp}});
+
+    // الاستماع للـ answer والـ status
+    CALL.unsubAnswer=onSnapshot(callRef,async snap=>{
+      const d=snap.data(); if(!d) return;
+      if(d.answer&&!CALL.pc.currentRemoteDescription){
+        await CALL.pc.setRemoteDescription(new RTCSessionDescription(d.answer));
+      }
+      if(d.status==='rejected'||d.status==='ended') endCall();
+    });
+
+    // الاستماع لـ ICE من الطرف الآخر
+    CALL.unsubIce=onSnapshot(collection(db,'wb_calls',CALL.roomId,'calleeIce'),snap=>{
+      snap.docChanges().forEach(async c=>{
+        if(c.type==='added') try{ await CALL.pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){}
+      });
+    });
+
+  } else {
+    // استقبال offer
+    const snap=await getDoc(callRef);
+    const d=snap.data();
+    if(!d?.offer){ endCall(); return; }
+    await CALL.pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+    const answer=await CALL.pc.createAnswer();
+    await CALL.pc.setLocalDescription(answer);
+    await updateDoc(callRef,{answer:{type:answer.type,sdp:answer.sdp},status:'accepted'});
+
+    // الاستماع لـ ICE من المتصل
+    CALL.unsubIce=onSnapshot(collection(db,'wb_calls',CALL.roomId,'callerIce'),snap=>{
+      snap.docChanges().forEach(async c=>{
+        if(c.type==='added') try{ await CALL.pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){}
+      });
+    });
+
+    // الاستماع لإنهاء المكالمة
+    CALL.unsubAnswer=onSnapshot(callRef,snap=>{
+      if(snap.data()?.status==='ended') endCall();
+    });
+  }
 }
 
 function startCallTimer(){
-  CALL.seconds=0;
-  clearInterval(CALL.timer);
-  document.getElementById('call-status-text').textContent='متصل ✓';
+  CALL.seconds=0; clearInterval(CALL.timer);
   CALL.timer=setInterval(()=>{
     CALL.seconds++;
     const m=String(Math.floor(CALL.seconds/60)).padStart(2,'0');
@@ -3685,21 +3711,22 @@ function startCallTimer(){
 
 window.endCall=async()=>{
   clearInterval(CALL.timer);
-  CALL.unsubStatus?.();
-  try{ CALL.frame?.leave?.(); CALL.frame?.destroy?.(); }catch(e){}
-  CALL.frame=null;
+  CALL.unsubAnswer?.(); CALL.unsubIce?.();
+  CALL.localStream?.getTracks().forEach(t=>t.stop());
+  try{CALL.pc?.close();}catch(e){}
+  CALL.pc=null; CALL.localStream=null;
   document.getElementById('call-screen').style.display='none';
   document.getElementById('call-remote-video').innerHTML='';
   document.getElementById('call-local-video').innerHTML='';
   if(CALL.roomId){
     await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'ended'}).catch(()=>{});
-    CALL.roomId=null; CALL.roomUrl=null;
+    CALL.roomId=null;
   }
 };
 
 window.toggleCallMute=()=>{
   CALL.isMuted=!CALL.isMuted;
-  CALL.frame?.setLocalAudio?.(!CALL.isMuted);
+  CALL.localStream?.getAudioTracks().forEach(t=>t.enabled=!CALL.isMuted);
   const btn=document.getElementById('call-mute-btn');
   btn.style.background=CALL.isMuted?'rgba(231,76,60,.5)':'rgba(255,255,255,.15)';
   btn.querySelector('i').className=CALL.isMuted?'fas fa-microphone-slash':'fas fa-microphone';
@@ -3707,7 +3734,7 @@ window.toggleCallMute=()=>{
 
 window.toggleCallCamera=()=>{
   CALL.isCamOff=!CALL.isCamOff;
-  CALL.frame?.setLocalVideo?.(!CALL.isCamOff);
+  CALL.localStream?.getVideoTracks().forEach(t=>t.enabled=!CALL.isCamOff);
   const btn=document.getElementById('call-cam-btn');
   btn.style.background=CALL.isCamOff?'rgba(231,76,60,.5)':'rgba(255,255,255,.15)';
   btn.querySelector('i').className=CALL.isCamOff?'fas fa-video-slash':'fas fa-video';
@@ -3719,13 +3746,13 @@ function listenIncomingCalls(){
   if(G.unsubs.calls) G.unsubs.calls();
   const q=query(collection(db,'wb_calls'),where('calleeId','==',G.user.uid),where('status','==','ringing'));
   G.unsubs.calls=onSnapshot(q,snap=>{
-    if(snap.empty){ document.getElementById('incoming-call').style.display='none'; return; }
+    if(snap.empty){document.getElementById('incoming-call').style.display='none';return;}
     snap.forEach(d=>{
       const call={id:d.id,...d.data()};
-      const age=(Date.now()-(call.createdAt?.seconds||0)*1000);
+      const age=Date.now()-(call.createdAt?.seconds||0)*1000;
       if(age>45000) return;
-      CALL.roomId=call.roomId; CALL.type=call.type;
-      CALL.roomUrl=call.roomUrl; CALL.isIncoming=true;
+      CALL.roomId=call.roomId;
+      CALL.type=call.type;
       document.getElementById('inc-caller-av').innerHTML=call.callerAvatar
         ?`<img src="${call.callerAvatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(call.callerName?.[0]||'م');
       document.getElementById('inc-caller-name').textContent=call.callerName||'مجهول';
@@ -3740,8 +3767,8 @@ function listenIncomingCalls(){
 window.acceptIncomingCall=async()=>{
   document.getElementById('incoming-call').style.display='none';
   await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'accepted'});
-  openCallScreen(CALL.type, true);
-  joinDailyRoom(CALL.roomUrl, CALL.type);
+  openCallScreen(CALL.type,true);
+  await initWebRTC(false,CALL.type);
 };
 
 window.rejectIncomingCall=async()=>{
