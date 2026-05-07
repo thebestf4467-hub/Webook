@@ -700,8 +700,38 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
   <div id="sv-next-zone" onclick="svNav(1)"  style="position:absolute;top:80px;left:0; width:65%;height:calc(100% - 80px);z-index:10;cursor:pointer"></div>
   <!-- Reply bar -->
   <div style="position:absolute;bottom:0;left:0;right:0;padding:12px 16px 28px;display:flex;gap:10px;align-items:center;z-index:20">
-    <input id="sv-reply-inp" placeholder="أرسل رسالة..." onclick="event.stopPropagation()" style="flex:1;padding:11px 16px;border:1.5px solid rgba(255,255,255,.4);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font-family:'Cairo',sans-serif;font-size:.88rem;outline:none;">
+    <input id="sv-reply-inp" placeholder="أرسل رسالة..."
+      onclick="event.stopPropagation()"
+      onfocus="svPauseForReply()"
+      onblur="svResumeAfterReply()"
+      style="flex:1;padding:11px 16px;border:1.5px solid rgba(255,255,255,.4);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font-family:'Cairo',sans-serif;font-size:.88rem;outline:none;">
     <button onclick="svSendReply()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer">↑</button>
+  </div>
+  <!-- سحب للأعلى — للمشاهدين -->
+  <div id="sv-viewers-hint" style="position:absolute;bottom:90px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:.75rem;display:none;flex-direction:column;align-items:center;gap:4px;z-index:15;pointer-events:none;cursor:pointer">
+    <i class="fas fa-chevron-up" style="font-size:.8rem"></i>
+    <span id="sv-viewers-count">0 مشاهد</span>
+  </div>
+  <!-- نافذة المشاهدين -->
+  <div id="sv-viewers-panel" style="position:absolute;bottom:-100%;left:0;right:0;height:70%;background:rgba(15,15,25,.98);border-radius:20px 20px 0 0;z-index:30;transition:bottom .35s cubic-bezier(.4,0,.2,1);padding:0;overflow:hidden;display:none">
+    <!-- هاندل السحب للأسفل -->
+    <div id="sv-viewers-handle" style="padding:14px;text-align:center;cursor:grab;flex-shrink:0">
+      <div style="width:40px;height:4px;background:rgba(255,255,255,.25);border-radius:2px;margin:0 auto"></div>
+    </div>
+    <div style="padding:0 16px;overflow-y:auto;height:calc(100% - 44px)">
+      <!-- عنوان + أزرار تعديل/حذف -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="color:#fff;font-weight:800;font-size:.95rem;display:flex;align-items:center;gap:8px">
+          <span>👁️ المشاهدون</span>
+          <span id="sv-viewers-total" style="color:rgba(255,255,255,.45);font-size:.8rem;font-weight:600"></span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="sv-edit-btn" onclick="svEditStory()" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.8);font-family:Cairo,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer"><i class="fas fa-pen"></i> تعديل</button>
+          <button id="sv-delete-btn" onclick="svDeleteStory()" style="padding:7px 14px;border-radius:20px;border:1.5px solid rgba(231,76,60,.4);background:rgba(231,76,60,.12);color:#e74c3c;font-family:Cairo,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer"><i class="fas fa-trash"></i> حذف</button>
+        </div>
+      </div>
+      <div id="sv-viewers-list"></div>
+    </div>
   </div>
 </div>
 
@@ -1485,6 +1515,35 @@ function svRender(){
     });
   }
   SV.timer = setTimeout(() => svNav(1), SV.duration);
+
+  // تسجيل المشاهدة
+  const currentStory = group.stories[SV.storyIdx];
+  if(currentStory) recordStoryView(currentStory.id, group.uid);
+
+  // أغلق لوحة المشاهدين دائماً عند الانتقال لأي قصة
+  const panel = document.getElementById('sv-viewers-panel');
+  const hint  = document.getElementById('sv-viewers-hint');
+  if(panel){ panel.style.bottom='-100%'; setTimeout(()=>{ panel.style.display='none'; },350); }
+
+  // إظهار/إخفاء عداد المشاهدين
+  const isOwner = group.uid === G.user?.uid;
+  if(hint){
+    hint.style.display = isOwner ? 'flex' : 'none';
+    if(isOwner && currentStory){
+      const countEl = document.getElementById('sv-viewers-count');
+      getDocs(query(collection(db,'wb_story_views'),where('storyId','==',currentStory.id))).then(s=>{
+        if(countEl) countEl.textContent = `${s.size} مشاهد`;
+      });
+      hint.style.pointerEvents='all';
+      hint.style.cursor='pointer';
+      hint.onclick = ()=>openSVViewers(currentStory.id);
+    }
+  }
+  // حفظ القصة الحالية للتعديل/الحذف
+  SV.currentStoryId = currentStory?.id;
+  SV.currentStoryData = currentStory;
+  // إعداد السحب
+  if(currentStory) setupStorySwipe(currentStory.id, isOwner);
 }
 
 // Navigate: dir = 1 (next) or -1 (prev)
@@ -1518,6 +1577,147 @@ window.svNav = (dir) => {
     }
     // If first story of first user, stay
   }
+};
+
+// إيقاف مؤقت عند التركيز على حقل الرد
+window.svPauseForReply = () => {
+  clearTimeout(SV.timer);
+  SV.paused = true;
+  // أوقف شريط التقدم
+  const fill = document.getElementById(`sv-fill-${SV.storyIdx}`);
+  if(fill){
+    const computed = getComputedStyle(fill).width;
+    const parent = fill.parentElement;
+    const pct = parent ? (parseFloat(computed)/parent.offsetWidth*100)+'%' : fill.style.width;
+    fill.style.transition = 'none';
+    fill.style.width = pct;
+    SV._pausedWidth = pct;
+  }
+};
+
+// استئناف بعد الرد
+window.svResumeAfterReply = () => {
+  const inp = document.getElementById('sv-reply-inp');
+  if(inp && inp.value.trim()) return; // لا تستأنف إذا كان يكتب
+  SV.paused = false;
+  const fill = document.getElementById(`sv-fill-${SV.storyIdx}`);
+  if(fill && SV._pausedWidth){
+    const pct = parseFloat(SV._pausedWidth);
+    const remaining = SV.duration * (1 - pct/100);
+    fill.style.transition = `width ${remaining}ms linear`;
+    fill.style.width = '100%';
+    SV.timer = setTimeout(() => svNav(1), remaining);
+  }
+};
+
+// تسجيل مشاهدة القصة
+async function recordStoryView(storyId, authorId){
+  if(!G.user || authorId === G.user.uid) return;
+  try{
+    await setDoc(doc(db,'wb_story_views',`${storyId}_${G.user.uid}`),{
+      storyId, viewerId:G.user.uid,
+      viewerName:G.userData?.name||'',
+      viewerAvatar:G.userData?.avatar||'',
+      viewerUsername:G.userData?.username||'',
+      authorId, viewedAt:serverTimestamp()
+    });
+  }catch(e){}
+}
+
+// تحميل المشاهدين (للمالك فقط)
+async function loadStoryViewers(storyId){
+  try{
+    const snap = await getDocs(query(collection(db,'wb_story_views'),where('storyId','==',storyId)));
+    const viewers = [];
+    snap.forEach(d=>viewers.push(d.data()));
+    const list = document.getElementById('sv-viewers-list');
+    const total = document.getElementById('sv-viewers-total');
+    if(total) total.textContent = `${viewers.length} مشاهد`;
+    if(!list) return;
+    if(!viewers.length){
+      list.innerHTML='<div style="color:rgba(255,255,255,.4);text-align:center;padding:30px">لا يوجد مشاهدون بعد</div>';
+      return;
+    }
+    list.innerHTML='';
+    viewers.forEach(v=>{
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer';
+      el.onclick=()=>{ closeSVViewers(); closeSV(); openPubProfile(v.viewerId); };
+      el.innerHTML=`
+        <div style="width:42px;height:42px;border-radius:50%;background:#5c7a4e;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff">
+          ${v.viewerAvatar?`<img src="${v.viewerAvatar}" style="width:100%;height:100%;object-fit:cover">`:(v.viewerName?.[0]||'م')}
+        </div>
+        <div style="flex:1">
+          <div style="color:#fff;font-weight:700;font-size:.88rem">${v.viewerName||'مستخدم'}</div>
+          <div style="color:rgba(255,255,255,.4);font-size:.72rem">@${v.viewerUsername||''}</div>
+        </div>
+        <i class="fas fa-chevron-left" style="color:rgba(255,255,255,.3);font-size:.75rem"></i>`;
+      list.appendChild(el);
+    });
+  }catch(e){}
+}
+
+window.openSVViewers = async(storyId) => {
+  svPauseForReply();
+  const panel = document.getElementById('sv-viewers-panel');
+  panel.style.display='block';
+  panel.style.bottom='0';
+  await loadStoryViewers(storyId);
+};
+
+window.closeSVViewers = () => {
+  const panel = document.getElementById('sv-viewers-panel');
+  panel.style.bottom='-100%';
+  setTimeout(()=>panel.style.display='none', 300);
+  svResumeAfterReply();
+};
+
+// إعداد السحب للأعلى في القصة
+function setupStorySwipe(storyId, isOwner){
+  const sv = document.getElementById('sv');
+  let startY = 0;
+  sv.ontouchstart = e => { startY = e.touches[0].clientY; };
+  sv.ontouchend = e => {
+    const diff = startY - e.changedTouches[0].clientY;
+    if(diff > 60 && isOwner) openSVViewers(storyId);   // سحب للأعلى = مشاهدون
+  };
+
+  // سحب للأسفل على لوحة المشاهدين لإغلاقها
+  const handle = document.getElementById('sv-viewers-handle');
+  if(!handle) return;
+  let panelStartY = 0;
+  handle.ontouchstart = e => { panelStartY = e.touches[0].clientY; };
+  handle.ontouchend = e => {
+    const diff = e.changedTouches[0].clientY - panelStartY;
+    if(diff > 50) closeSVViewers();
+  };
+}
+
+// تعديل القصة
+window.svEditStory = async() => {
+  const story = SV.currentStoryData;
+  if(!story) return;
+  const newText = prompt('تعديل نص القصة:', story.text||'');
+  if(newText === null) return;
+  try{
+    await updateDoc(doc(db,'wb_stories',story.id),{text:newText});
+    closeSVViewers();
+    svRender(); // تحديث العرض
+    alert('✅ تم التعديل');
+  }catch(e){ alert('خطأ: '+e.message); }
+};
+
+// حذف القصة
+window.svDeleteStory = async() => {
+  const story = SV.currentStoryData;
+  if(!story) return;
+  if(!confirm('هل تريد حذف هذه القصة نهائياً؟')) return;
+  try{
+    await deleteDoc(doc(db,'wb_stories',story.id));
+    closeSVViewers();
+    svNav(1); // انتقل للتالي أو أغلق
+    alert('✅ تم الحذف');
+  }catch(e){ alert('خطأ: '+e.message); }
 };
 
 window.closeSV = () => {
@@ -1804,7 +2004,7 @@ async function toggleReelLike(reelId, btn){
 }
 
 // ── Reel Tap Logic ──
-let _reelMuted = true; // مكتوم بشكل افتراضي
+let _reelMuted = false; // صوت مفعّل بشكل افتراضي
 
 function setupReelTap(el, reelId){
   const tapOverlay = el.querySelector(`#tap-${reelId}`);
