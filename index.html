@@ -343,7 +343,8 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
     </div>
     <div id="reg-f" style="display:none">
       <input class="auth-input" id="r-name" type="text" placeholder="الاسم الكامل">
-      <input class="auth-input" id="r-username" type="text" placeholder="اسم المستخدم @">
+      <input class="auth-input" id="r-username" type="text" placeholder="اسم المستخدم @" oninput="checkUsernameAvail(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off">
+      <div id="username-avail" style="font-size:.75rem;margin-top:-8px;margin-bottom:4px;padding:0 4px;display:none"></div>
       <input class="auth-input" id="r-email" type="email" placeholder="البريد الإلكتروني">
       <input class="auth-input" id="r-pass" type="password" placeholder="كلمة المرور (6+ أحرف)">
       <button class="auth-btn" id="r-btn" onclick="doRegister()">إنشاء الحساب</button>
@@ -562,12 +563,12 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 
 <nav id="bnav" style="display:none">
   <button class="bn active" id="bn-feed" onclick="goPage('feed-page')"><i class="fas fa-home"></i><span>الرئيسية</span></button>
-  <button class="bn" id="bn-search-nav" onclick="goPage('search-page')"><i class="fas fa-search"></i><span>بحث</span></button>
+  <button class="bn" id="bn-friends" onclick="goPage('friends-page')"><i class="fas fa-user-plus"></i><span>أصدقاء</span></button>
   <button class="bn bn-center" id="bn-reels" onclick="goPage('reels-page')">
     <div class="bn-bubble"><i class="fas fa-clapperboard"></i></div>
     <span style="font-weight:800;font-size:.58rem">ريلز</span>
   </button>
-  <button class="bn" id="bn-friends" onclick="goPage('friends-page')"><i class="fas fa-user-plus"></i><span>أصدقاء</span></button>
+  <button class="bn" id="bn-search-nav" onclick="goPage('search-page')"><i class="fas fa-search"></i><span>بحث</span></button>
   <button class="bn" id="bn-profile" onclick="goPage('profile-page')"><i class="fas fa-user"></i><span>حسابي</span></button>
 </nav>
 
@@ -798,7 +799,8 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
       <input type="file" id="ep-av-input" accept="image/*" style="display:none" onchange="previewEditAvatar(this)">
     </div>
     <input class="inp" id="ep-name" type="text" placeholder="الاسم الكامل">
-    <input class="inp" id="ep-username" type="text" placeholder="اسم المستخدم">
+    <input class="inp" id="ep-username" type="text" placeholder="اسم المستخدم" autocomplete="off" autocapitalize="off">
+    <div id="ep-username-info" style="font-size:.73rem;margin-top:-8px;margin-bottom:6px;padding:0 4px;color:#6b7a5a;display:none"></div>
     <textarea class="inp" id="ep-bio" placeholder="نبذة عنك..."></textarea>
     <input class="inp" id="ep-link" type="url" placeholder="رابط خارجي (اختياري)">
     <button class="btn-primary" onclick="saveProfile()" style="width:100%">حفظ ✓</button>
@@ -1043,6 +1045,11 @@ onAuthStateChanged(auth, async user => {
       listenNotifs();
       listenMsgBadge();
       listenIncomingCalls();
+      // مراقبة تغييرات بيانات المستخدم (توثيق، أدمن، إلخ)
+      if(G.unsubs.userData) G.unsubs.userData();
+      G.unsubs.userData = onSnapshot(doc(db,'wb_users',user.uid), udSnap=>{
+        if(udSnap.exists()) G.userData = udSnap.data();
+      });
     } catch(e) {
       console.error('خطأ في تحميل بيانات المستخدم:', e);
       // حتى لو فشل Firestore، افتح التطبيق ببيانات مؤقتة
@@ -1096,12 +1103,23 @@ window.doRegister = async () => {
   const pass=document.getElementById('r-pass').value;
   if(!name||!username||!email||!pass){return authErr('أكمل جميع الحقول');}
   if(pass.length<6){return authErr('كلمة المرور 6 أحرف على الأقل');}
-  if(!/^[a-zA-Z0-9_\u0600-\u06FF]+$/.test(username)){return authErr('اسم المستخدم: أحرف وأرقام فقط');}
-  const btn=document.getElementById('r-btn'); btn.textContent='جاري الإنشاء...'; btn.disabled=true;
+  if(!/^[a-z0-9_]+$/.test(username)){return authErr('اسم المستخدم: أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط');}
+  if(username.length<3){return authErr('اسم المستخدم 3 أحرف على الأقل');}
+
+  const btn=document.getElementById('r-btn'); btn.textContent='جاري التحقق...'; btn.disabled=true;
+
   try{
+    // ── فحص تكرار اليوزر ──
+    const usernameCheck=await getDocs(query(collection(db,'wb_users'),where('username','==',username)));
+    if(!usernameCheck.empty){
+      btn.textContent='إنشاء الحساب'; btn.disabled=false;
+      return authErr(`❌ اسم المستخدم @${username} مأخوذ — اختر اسماً آخر`);
+    }
+
+    btn.textContent='جاري الإنشاء...';
     // 1. إنشاء الحساب في Firebase Auth
     const cred = await createUserWithEmailAndPassword(auth,email,pass);
-    // 2. حفظ البيانات في Firestore مع retry
+    // 2. حفظ البيانات في Firestore
     const userData = {
       uid:cred.user.uid, name, username, email,
       avatar:'', bio:'', link:'',
@@ -1110,15 +1128,12 @@ window.doRegister = async () => {
       blockedUsers:[], mutedUsers:[],
       createdAt:serverTimestamp()
     };
-    // محاولتان للحفظ
     try {
       await setDoc(doc(db,'wb_users',cred.user.uid), userData);
     } catch(dbErr) {
-      // انتظر ثانية وحاول مجدداً
       await new Promise(r=>setTimeout(r,1500));
       await setDoc(doc(db,'wb_users',cred.user.uid), userData);
     }
-    // onAuthStateChanged سيكمل الباقي تلقائياً
   } catch(e){
     btn.textContent='إنشاء الحساب'; btn.disabled=false;
     if(e.code==='auth/email-already-in-use') authErr('البريد مستخدم بالفعل — جرب تسجيل الدخول');
@@ -1129,13 +1144,52 @@ window.doRegister = async () => {
 };
 window.doLogout = async () => {
   if(!confirm('هل تريد تسجيل الخروج؟'))return;
-  Object.values(G.unsubs).forEach(fn=>fn&&fn());
+  // إيقاف كل المستمعين
+  Object.values(G.unsubs||{}).forEach(fn=>{ try{ if(typeof fn==='function') fn(); }catch(e){} });
+  G.unsubs={};
+  // إيقاف المكالمة إن كانت نشطة
+  if(CALL?.roomId) endCall().catch(()=>{});
+  // إيقاف observer الريلز
+  if(G._reelObserver){ G._reelObserver.disconnect(); G._reelObserver=null; }
+  G.user=null; G.userData=null;
   document.getElementById('main-hdr').style.display='none';
   document.getElementById('stories-wrap').style.display='none';
   document.getElementById('bnav').style.display='none';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   await signOut(auth);
 };
+// فحص توفر اليوزر أثناء الكتابة
+let _usernameTimer=null;
+window.checkUsernameAvail=async(val)=>{
+  const username=val.trim().replace('@','').toLowerCase();
+  const el=document.getElementById('username-avail');
+  if(!el) return;
+  clearTimeout(_usernameTimer);
+  if(!username){ el.style.display='none'; return; }
+  if(username.length<3){
+    el.style.display='block';
+    el.innerHTML='<span style="color:#e67e22">⚠️ اسم المستخدم 3 أحرف على الأقل</span>';
+    return;
+  }
+  if(!/^[a-z0-9_]+$/.test(username)){
+    el.style.display='block';
+    el.innerHTML='<span style="color:#e74c3c">❌ أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط</span>';
+    return;
+  }
+  el.style.display='block';
+  el.innerHTML='<span style="color:#6b7a5a">🔍 جاري التحقق...</span>';
+  _usernameTimer=setTimeout(async()=>{
+    try{
+      const snap=await getDocs(query(collection(db,'wb_users'),where('username','==',username)));
+      if(snap.empty){
+        el.innerHTML=`<span style="color:#27ae60">✅ @${username} متاح!</span>`;
+      } else {
+        el.innerHTML=`<span style="color:#e74c3c">❌ @${username} مأخوذ — اختر اسماً آخر</span>`;
+      }
+    }catch(e){ el.style.display='none'; }
+  },600);
+};
+
 function authErr(msg){const el=document.getElementById('auth-err');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3500);}
 
 window.doResetPass = async () => {
@@ -1171,8 +1225,8 @@ window.goPage = (pageId) => {
   document.getElementById(pageId)?.classList.add('active');
   document.querySelectorAll('.bn').forEach(b=>b.classList.remove('active'));
   const map={
-    'feed-page':'bn-feed','search-page':'bn-search-nav','reels-page':'bn-reels',
-    'friends-page':'bn-friends','profile-page':'bn-profile',
+    'feed-page':'bn-feed','reels-page':'bn-reels',
+    'friends-page':'bn-friends','search-page':'bn-search-nav','profile-page':'bn-profile',
     'messages-page':null,'notif-page':null,'settings-page':null,'explore-page':null
   };
   if(map[pageId]) document.getElementById(map[pageId])?.classList.add('active');
@@ -1749,8 +1803,7 @@ function loadFeed(){
   const c = document.getElementById('feed-list');
   c.innerHTML = '<div class="spin"><i class="fas fa-circle-notch"></i></div>';
   if(G.unsubs.feed) G.unsubs.feed();
-  // بدون orderBy لتجنب مشكلة الـ Index
-  const q = query(collection(db,'wb_posts'));
+  const q = query(collection(db,'wb_posts'),limit(30));
   G.unsubs.feed = onSnapshot(q, snap => {
     c.innerHTML='';
     const blocked=G.userData?.blockedUsers||[];
@@ -2257,15 +2310,22 @@ function loadChats(){
   const list=document.getElementById('chats-list');
   list.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
   if(!G.user)return;
-  getDocs(query(collection(db,'wb_chats'),where('participants','array-contains',G.user.uid))).then(async snap=>{
+  if(G.unsubs.chatsList) G.unsubs.chatsList();
+  const q=query(collection(db,'wb_chats'),where('participants','array-contains',G.user.uid));
+  G.unsubs.chatsList=onSnapshot(q,async snap=>{
     list.innerHTML='';
     if(snap.empty){list.innerHTML='<div class="empty"><i class="fas fa-comment-dots"></i><p>لا توجد محادثات بعد</p></div>';return;}
     const chats=[]; snap.forEach(d=>chats.push({id:d.id,...d.data()}));
     chats.sort((a,b)=>(b.lastMessageAt?.seconds||0)-(a.lastMessageAt?.seconds||0));
+    list.innerHTML='';
     for(const chat of chats){
-      const otherId=chat.participants.find(p=>p!==G.user.uid)||'';
-      const uSnap=await getDoc(doc(db,'wb_users',otherId));
-      const other=uSnap.exists()?{uid:otherId,...uSnap.data()}:{uid:otherId,name:'مستخدم',avatar:''};
+      const otherId=chat.participants?.find(p=>p!==G.user.uid)||'';
+      if(!otherId) continue;
+      let other={uid:otherId,name:'مستخدم',avatar:'',isVerified:false};
+      try{
+        const uSnap=await getDoc(doc(db,'wb_users',otherId));
+        if(uSnap.exists()) other={uid:otherId,...uSnap.data()};
+      }catch(e){}
       const el=document.createElement('button');
       el.className='msg-item';
       el.onclick=()=>openChat(chat.id,otherId,other);
@@ -2275,13 +2335,13 @@ function loadChats(){
           ${other.isOnline?'<span class="online-dot"></span>':''}
         </div>
         <div style="flex:1;min-width:0;text-align:right">
-          <div style="font-weight:800;font-size:.92rem">${other.name||'مستخدم'}</div>
+          <div style="font-weight:800;font-size:.92rem;display:flex;align-items:center;gap:4px">${other.name||'مستخدم'}${vbadge(other.isVerified)}</div>
           <div style="font-size:.78rem;color:#6b7a5a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px">${chat.lastMessage||'ابدأ المحادثة'}</div>
         </div>
         ${chat.unreadCount>0?`<div class="unread-badge">${chat.unreadCount}</div>`:''}`;
       list.appendChild(el);
     }
-  });
+  },err=>{ list.innerHTML='<div class="empty"><p>خطأ في تحميل الرسائل</p></div>'; });
 }
 
 function openChat(chatId, otherId, otherUser){
@@ -2498,18 +2558,23 @@ async function loadMyProfile(){
 
 function loadProfilePosts(){
   if(G.unsubs.myPosts) G.unsubs.myPosts();
-  const q=query(collection(db,'wb_posts'),where('authorId','==',G.user.uid),orderBy('createdAt','desc'));
+  // بدون orderBy لتجنب Firestore Index
+  const q=query(collection(db,'wb_posts'),where('authorId','==',G.user.uid));
   G.unsubs.myPosts=onSnapshot(q,snap=>{
-    G.allMyPosts=[];snap.forEach(d=>G.allMyPosts.push({id:d.id,...d.data()}));
+    G.allMyPosts=[];
+    snap.forEach(d=>G.allMyPosts.push({id:d.id,...d.data()}));
+    G.allMyPosts.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
     document.getElementById('prof-posts-n').textContent=G.allMyPosts.length;
     renderProfileGrid();
-  });
+  },err=>console.error('Profile posts:',err));
   if(G.unsubs.mySaved) G.unsubs.mySaved();
   const q2=query(collection(db,'wb_posts'),where('savedBy','array-contains',G.user.uid));
   G.unsubs.mySaved=onSnapshot(q2,snap=>{
-    G.allMySaved=[];snap.forEach(d=>G.allMySaved.push({id:d.id,...d.data()}));
+    G.allMySaved=[];
+    snap.forEach(d=>G.allMySaved.push({id:d.id,...d.data()}));
+    G.allMySaved.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
     if(G.profileTab==='saved') renderProfileGrid();
-  });
+  },err=>console.error('Saved posts:',err));
 }
 
 window.switchProfileTab=(tab)=>{
@@ -2549,6 +2614,33 @@ window.openEditProfile=()=>{
   G.epAvData=null;
   const prev=document.getElementById('ep-av-prev');
   prev.innerHTML=ud.avatar?`<img src="${ud.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(ud.name?.[0]||'م');
+
+  // عرض معلومات الانتظار
+  const infoEl=document.getElementById('ep-username-info');
+  if(infoEl){
+    const isVerified=ud.isVerified||false;
+    const cooldown=isVerified?2:5;
+    const lastChange=ud.lastUsernameChange;
+    if(lastChange){
+      const lastMs=lastChange.toDate?lastChange.toDate().getTime():lastChange;
+      const daysSince=(Date.now()-lastMs)/(1000*60*60*24);
+      if(daysSince<cooldown){
+        const remaining=Math.ceil(cooldown-daysSince);
+        infoEl.style.display='block';
+        infoEl.style.color='#e67e22';
+        infoEl.innerHTML=`⏳ يمكنك تغيير اليوزر بعد ${remaining} يوم${remaining===1?'':''}${isVerified?' (حساب موثّق)':''}`;
+      } else {
+        infoEl.style.display='block';
+        infoEl.style.color='#27ae60';
+        infoEl.innerHTML=isVerified?'✅ يمكنك تغيير اليوزر (موثّق — مرة كل يومين)':'✅ يمكنك تغيير اليوزر (مرة كل 5 أيام)';
+      }
+    } else {
+      infoEl.style.display='block';
+      infoEl.style.color='#6b7a5a';
+      infoEl.innerHTML=isVerified?'ℹ️ يمكنك تغيير اليوزر مرة كل يومين (موثّق)':'ℹ️ يمكنك تغيير اليوزر مرة كل 5 أيام';
+    }
+  }
+
   openOverlay('edit-profile-overlay');
 };
 window.previewEditAvatar=async input=>{
@@ -2562,21 +2654,62 @@ window.saveProfile=async()=>{
   const bio=document.getElementById('ep-bio').value.trim();
   const link=document.getElementById('ep-link').value.trim();
   const avatar=G.epAvData||G.userData?.avatar||'';
+  const isVerified=G.userData?.isVerified||false;
 
-  // تحقق من اسم المستخدم — إنجليزي وأرقام وشرطة سفلية فقط
-  if(!username){ alert('❌ أدخل اسم المستخدم'); return; }
-  if(!/^[a-z0-9_]+$/.test(username)){
-    alert('❌ اسم المستخدم يجب أن يحتوي على أحرف إنجليزية وأرقام وشرطة سفلية فقط\nمثال: ahmed_123');
-    return;
-  }
-  if(username.length < 3){ alert('❌ اسم المستخدم يجب أن يكون 3 أحرف على الأقل'); return; }
   if(!name){ alert('❌ أدخل الاسم الكامل'); return; }
+  if(!username){ alert('❌ أدخل اسم المستخدم'); return; }
+
+  // قواعد اليوزر حسب التوثيق
+  if(isVerified){
+    // الموثّق: حرف واحد على الأقل، أي أحرف وأرقام وشرطة سفلية
+    if(!/^[a-z0-9_]+$/.test(username)){
+      alert('❌ اسم المستخدم يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط');
+      return;
+    }
+    if(username.length < 1){ alert('❌ اسم المستخدم حرف واحد على الأقل'); return; }
+  } else {
+    // غير الموثّق: 3 أحرف على الأقل
+    if(!/^[a-z0-9_]+$/.test(username)){
+      alert('❌ اسم المستخدم يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطة سفلية فقط');
+      return;
+    }
+    if(username.length < 3){ alert('❌ اسم المستخدم يجب أن يكون 3 أحرف على الأقل'); return; }
+  }
+
+  // فحص تغيير اليوزر فقط إذا تغيّر
+  if(username !== G.userData?.username){
+
+    // فحص مدة الانتظار
+    const lastChange=G.userData?.lastUsernameChange;
+    if(lastChange){
+      const lastMs = lastChange.toDate ? lastChange.toDate().getTime() : lastChange;
+      const daysSince=(Date.now()-lastMs)/(1000*60*60*24);
+      const cooldown=isVerified?2:5; // موثّق: يومان، عادي: 5 أيام
+      if(daysSince<cooldown){
+        const remaining=Math.ceil(cooldown-daysSince);
+        alert(`⏳ يمكنك تغيير اسم المستخدم مرة كل ${cooldown} أيام\nالوقت المتبقي: ${remaining} يوم${remaining===1?'':''}${isVerified?' (حساب موثّق)':''}`);
+        return;
+      }
+    }
+
+    // فحص تكرار اليوزر
+    const check=await getDocs(query(collection(db,'wb_users'),where('username','==',username)));
+    if(!check.empty){
+      alert(`❌ اسم المستخدم @${username} مأخوذ — اختر اسماً آخر`);
+      return;
+    }
+  }
 
   try{
-    await updateDoc(doc(db,'wb_users',G.user.uid),{name,username,bio,link,avatar});
-    G.userData={...G.userData,name,username,bio,link,avatar};
+    const updateData={name,username,bio,link,avatar};
+    // حفظ وقت تغيير اليوزر فقط إذا تغيّر
+    if(username !== G.userData?.username) updateData.lastUsernameChange=serverTimestamp();
+
+    await updateDoc(doc(db,'wb_users',G.user.uid),updateData);
+    G.userData={...G.userData,...updateData};
     G.epAvData=null;
     closeOverlay('edit-profile-overlay');
+    loadMyProfile();
     alert('✅ تم الحفظ');
   }catch(e){alert('خطأ: '+e.message);}
 };
@@ -2939,38 +3072,97 @@ window.submitComment=async()=>{
 // ══════════════════════════════
 window.doSearch=async(q)=>{
   const res=document.getElementById('search-res');
-  if(!q.trim()){res.innerHTML='<div class="empty"><i class="fas fa-search"></i><p>ابحث عن أشخاص أو منشورات</p></div>';return;}
-  res.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
-  const [usersSnap,postsSnap]=await Promise.all([
-    getDocs(collection(db,'wb_users')),
-    getDocs(collection(db,'wb_posts'))
-  ]);
-  const users=[],posts=[];
-  usersSnap.forEach(d=>{const u=d.data();if(u.name?.includes(q)||u.username?.includes(q))users.push(u);});
-  postsSnap.forEach(d=>{const p={id:d.id,...d.data()};if(p.text?.includes(q)||(p.tags||[]).some(t=>t.includes(q)))posts.push(p);});
-  res.innerHTML='';
-  if(!users.length&&!posts.length){res.innerHTML='<div class="empty"><i class="fas fa-search"></i><p>لا نتائج لـ "'+q+'"</p></div>';return;}
-  if(users.length){
-    const h=document.createElement('div');h.style.cssText='padding:10px 16px 6px;font-weight:800;font-size:.85rem;color:#6b7a5a';h.textContent='أشخاص';res.appendChild(h);
-    users.forEach(u=>{
-      const el=document.createElement('div');
-      el.style.cssText='display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(92,122,78,.1);cursor:pointer;transition:background .15s;';
-      el.onmouseenter=()=>el.style.background='rgba(92,122,78,.05)';
-      el.onmouseleave=()=>el.style.background='transparent';
-      el.onclick=()=>openPubProfile(u.uid);
-      el.innerHTML=`
-        <div style="width:48px;height:48px;border-radius:50%;background:#8aab7a;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1rem">${u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م')}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:800;font-size:.9rem;display:flex;align-items:center;gap:4px">${u.name}${vbadge(u.isVerified)}</div>
-          <div style="font-size:.75rem;color:#6b7a5a">@${u.username} · ${u.followers||0} متابع</div>
-        </div>
-        <i class="fas fa-chevron-left" style="color:#c0c8b8;font-size:.75rem"></i>`;
-      res.appendChild(el);
-    });
+  const trimmed=q.trim().toLowerCase().replace(/^@/,'');
+  if(!trimmed){
+    res.innerHTML='<div class="empty"><i class="fas fa-search"></i><p>ابحث عن أشخاص أو منشورات</p></div>';
+    return;
   }
-  if(posts.length){
-    const h=document.createElement('div');h.style.cssText='padding:10px 16px 6px;font-weight:800;font-size:.85rem;color:#6b7a5a';h.textContent='منشورات';res.appendChild(h);
-    posts.forEach(p=>res.appendChild(buildPostCard(p)));
+  res.innerHTML='<div class="spin"><i class="fas fa-circle-notch"></i></div>';
+
+  try{
+    const [usersSnap,postsSnap]=await Promise.all([
+      getDocs(collection(db,'wb_users')),
+      getDocs(collection(db,'wb_posts'))
+    ]);
+
+    const users=[], posts=[];
+    const blocked=G.userData?.blockedUsers||[];
+
+    usersSnap.forEach(d=>{
+      const u=d.data();
+      if(blocked.includes(u.uid)) return;
+      if(u.uid===G.user?.uid) return; // أخفِ نفسك
+      const nameMatch=u.name?.toLowerCase().includes(trimmed);
+      const userMatch=u.username?.toLowerCase().includes(trimmed);
+      if(nameMatch||userMatch) users.push({...u, _exactUsername: u.username?.toLowerCase()===trimmed});
+    });
+
+    // رتّب: المطابقة التامة أولاً ثم الجزئية
+    users.sort((a,b)=>{
+      if(a._exactUsername && !b._exactUsername) return -1;
+      if(!a._exactUsername && b._exactUsername) return 1;
+      return (b.followers||0)-(a.followers||0);
+    });
+
+    postsSnap.forEach(d=>{
+      const p={id:d.id,...d.data()};
+      if(blocked.includes(p.authorId)) return;
+      if(p.text?.toLowerCase().includes(trimmed)||(p.tags||[]).some(t=>t.toLowerCase().includes(trimmed)))
+        posts.push(p);
+    });
+
+    res.innerHTML='';
+    if(!users.length&&!posts.length){
+      res.innerHTML=`<div class="empty"><i class="fas fa-search"></i><p>لا نتائج لـ "${q}"</p></div>`;
+      return;
+    }
+
+    if(users.length){
+      const h=document.createElement('div');
+      h.style.cssText='padding:12px 16px 6px;font-weight:800;font-size:.82rem;color:#6b7a5a;letter-spacing:.5px;text-transform:uppercase';
+      h.textContent=`👤 أشخاص (${users.length})`;
+      res.appendChild(h);
+
+      users.forEach(u=>{
+        const el=document.createElement('div');
+        el.style.cssText='display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid rgba(92,122,78,.08);cursor:pointer;transition:background .15s;';
+        el.onmouseenter=()=>el.style.background='rgba(92,122,78,.05)';
+        el.onmouseleave=()=>el.style.background='transparent';
+        el.onclick=()=>openPubProfile(u.uid);
+
+        // إبراز النص المطابق
+        const highlightName=u.name?.replace(new RegExp(trimmed,'gi'),m=>`<mark style="background:#5c7a4e22;border-radius:3px;padding:0 2px">${m}</mark>`)||u.name||'';
+        const highlightUser=u.username?.replace(new RegExp(trimmed,'gi'),m=>`<mark style="background:#5c7a4e22;border-radius:3px;padding:0 2px">${m}</mark>`)||u.username||'';
+
+        el.innerHTML=`
+          <div style="position:relative;flex-shrink:0">
+            <div style="width:50px;height:50px;border-radius:50%;background:#8aab7a;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1.1rem">
+              ${u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م')}
+            </div>
+            ${u._exactUsername?'<div style="position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#2ecc71;border:2px solid #fff"></div>':''}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:.92rem;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              ${highlightName}${vbadge(u.isVerified)}
+              ${u.isAdmin?'<span style="background:#e74c3c;color:#fff;border-radius:6px;padding:1px 5px;font-size:.6rem">أدمن</span>':''}
+            </div>
+            <div style="font-size:.76rem;color:#6b7a5a;margin-top:2px">@${highlightUser}</div>
+            <div style="font-size:.7rem;color:#8aab7a;margin-top:1px">${u.followers||0} متابع · ${u.following||0} متابَع</div>
+          </div>
+          <i class="fas fa-chevron-left" style="color:#c0c8b8;font-size:.75rem"></i>`;
+        res.appendChild(el);
+      });
+    }
+
+    if(posts.length){
+      const h=document.createElement('div');
+      h.style.cssText='padding:12px 16px 6px;font-weight:800;font-size:.82rem;color:#6b7a5a;margin-top:8px';
+      h.textContent=`📝 منشورات (${posts.length})`;
+      res.appendChild(h);
+      posts.slice(0,10).forEach(p=>res.appendChild(buildPostCard(p)));
+    }
+  }catch(e){
+    res.innerHTML=`<div class="empty"><i class="fas fa-exclamation-triangle"></i><p>خطأ في البحث: ${e.message}</p></div>`;
   }
 };
 
@@ -3525,7 +3717,20 @@ window.adminDeleteChat=async(chatId,el)=>{
 
 window.adminLoad=async(type)=>{const m={posts:'posts',comments:'comments',users:'users'};adminTab(document.querySelector(`.admin-tab[data-tab=${m[type]}]`),m[type]);};
 window.adminDelete=async(type,id,el)=>{if(!confirm('حذف؟'))return;try{await deleteDoc(doc(db,type==='posts'?'wb_posts':type==='comments'?'wb_comments':'wb_users',id));el.style.opacity='.3';setTimeout(()=>el.remove(),300);}catch(e){alert(e.message);}};
-window.fixFirestoreRules=()=>{alert('Firebase Console → Firestore → Rules\nالصق:\nrules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}');};
+window.fixFirestoreRules=()=>{alert(`Firebase Console → Firestore → Rules
+
+الصق هذا النص:
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+ثم اضغط Publish`);};
 
 // ══════════════════════════════
 // OVERLAYS
