@@ -156,15 +156,14 @@ body.dark .btn-secondary{background:#1e2a1a;color:#6a9b60;}
 .reel-tap-overlay{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent;background:transparent;}
 /* أيقونة وسط الريل: كتم فوق، تشغيل تحت */
 .reel-tap-overlay{position:absolute;inset:0;z-index:3;cursor:pointer;-webkit-tap-highlight-color:transparent;background:transparent;}
-.reel-center-icons{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:14px;z-index:4;pointer-events:none;}
-.reel-mute-icon{width:52px;height:52px;border-radius:50%;background:rgba(80,80,80,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.reel-center-icons{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:14px;z-index:5;pointer-events:none;}
+.reel-mute-icon{width:52px;height:52px;border-radius:50%;background:rgba(80,80,80,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);cursor:pointer;pointer-events:all;}
 .reel-mute-icon i{color:#fff;font-size:1.2rem;}
 .reel-play-icon{width:64px;height:64px;border-radius:50%;background:rgba(80,80,80,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .reel-play-icon i{color:#fff;font-size:1.5rem;margin-right:-3px;}
-/* مخفية بشكل افتراضي */
 .reel-center-icons{opacity:0;transition:opacity .2s;}
 .reel-center-icons.show{opacity:1;}
-/* قلب اللايك المنبثق */
+/* قلب اللايك */
 .reel-heart-pop{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);color:#fff;font-size:5rem;pointer-events:none;z-index:20;opacity:0;text-shadow:0 2px 12px rgba(0,0,0,.5);}
 @keyframes heartPop{0%{transform:translate(-50%,-50%) scale(0);opacity:1}50%{transform:translate(-50%,-50%) scale(1.3);opacity:1}80%{transform:translate(-50%,-50%) scale(1.1);opacity:1}100%{transform:translate(-50%,-50%) scale(1.2);opacity:0}}
 .reel-heart-pop.animate{animation:heartPop .7s ease forwards;}
@@ -1228,13 +1227,13 @@ window.setStoryPrivacy = (val) => {
   _storyPrivacy = val;
   const pubBtn = document.getElementById('ns-priv-public');
   const friBtn = document.getElementById('ns-priv-friends');
-  const t = document.body.classList.contains('dark') ? themes.dark : themes.light;
+  if(!pubBtn||!friBtn) return;
   if(val === 'public'){
-    pubBtn.style.background = '#5c7a4e'; pubBtn.style.color = '#fff'; pubBtn.style.borderColor = '#5c7a4e';
-    friBtn.style.background = 'transparent'; friBtn.style.color = '#6b7a5a'; friBtn.style.borderColor = 'rgba(92,122,78,.3)';
+    pubBtn.style.background='#5c7a4e'; pubBtn.style.color='#fff'; pubBtn.style.borderColor='#5c7a4e';
+    friBtn.style.background='transparent'; friBtn.style.color='#6b7a5a'; friBtn.style.borderColor='rgba(92,122,78,.3)';
   } else {
-    friBtn.style.background = '#5c7a4e'; friBtn.style.color = '#fff'; friBtn.style.borderColor = '#5c7a4e';
-    pubBtn.style.background = 'transparent'; pubBtn.style.color = '#6b7a5a'; pubBtn.style.borderColor = 'rgba(92,122,78,.3)';
+    friBtn.style.background='#5c7a4e'; friBtn.style.color='#fff'; friBtn.style.borderColor='#5c7a4e';
+    pubBtn.style.background='transparent'; pubBtn.style.color='#6b7a5a'; pubBtn.style.borderColor='rgba(92,122,78,.3)';
   }
 };
 
@@ -1813,13 +1812,22 @@ function setupReelTap(el, reelId){
   const picon      = el.querySelector(`#picon-${reelId}`);
   const micon      = el.querySelector(`#micon-${reelId}`);
   let lastTap = 0;
-  let hideTimer = null;
 
-  // عند الضغط على منطقة الكتم (الثلث العلوي)
+  // الضغط المباشر على أيقونة الكتم
+  if(micon){
+    micon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const video = el.querySelector('video.reel-video');
+      if(video){ video.muted = !video.muted; _reelMuted = video.muted; }
+      micon.querySelector('i').className = _reelMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
+      cicons.classList.add('show');
+      setTimeout(()=>cicons.classList.remove('show'), 1500);
+    });
+  }
+
+  // الضغط على باقي الشاشة = تشغيل/إيقاف أو لايك مزدوج
   tapOverlay.addEventListener('click', (e) => {
     e.stopPropagation();
-    const rect = tapOverlay.getBoundingClientRect();
-    const y = e.clientY - rect.top;
     const now = Date.now();
     const delta = now - lastTap;
     lastTap = now;
@@ -1833,37 +1841,21 @@ function setupReelTap(el, reelId){
       return;
     }
 
+    // ضغطة واحدة = تشغيل/إيقاف
     const video = el.querySelector('video.reel-video');
-
-    // الثلث العلوي = تبديل الكتم
-    if(y < rect.height * 0.35){
-      if(video){ video.muted = !video.muted; _reelMuted = video.muted; }
-      // تحديث أيقونة الكتم
-      if(micon) micon.querySelector('i').className = _reelMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
-      showIcons(cicons, hideTimer, false); // أظهر الأيقونتين فقط
-      return;
-    }
-
-    // باقي الشاشة = تشغيل/إيقاف
     if(!video) return;
     if(video.paused){
       video.play().catch(()=>{});
       if(picon) picon.querySelector('i').className='fas fa-play';
-      showIconsThenHide(cicons);
+      cicons.classList.add('show');
+      setTimeout(()=>cicons.classList.remove('show'), 800);
     } else {
       video.pause();
       if(picon) picon.querySelector('i').className='fas fa-pause';
-      // أظهر الأيقونتين وابقِهما
-      cicons.classList.add('show');
+      cicons.classList.add('show'); // تبقى ظاهرة عند الإيقاف
     }
   });
 }
-
-function showIconsThenHide(iconsEl){
-  iconsEl.classList.add('show');
-  setTimeout(()=>iconsEl.classList.remove('show'), 800);
-}
-function showIcons(iconsEl){ iconsEl.classList.add('show'); setTimeout(()=>iconsEl.classList.remove('show'),1200); }
 
 window.toggleReelMute = (reelId, btn) => {
   const videos = document.querySelectorAll('#reels-list video.reel-video');
