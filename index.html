@@ -479,8 +479,8 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
   <a id="prof-link" href="#" target="_blank" style="color:rgba(255,255,255,.65);font-size:.78rem;margin-top:4px;display:none"><i class="fas fa-link"></i> <span id="prof-link-text"></span></a>
   <div style="display:flex;justify-content:center;gap:32px;margin-top:18px">
     <div class="prof-stat"><div class="prof-stat-n" id="prof-posts-n">0</div><div class="prof-stat-l">منشور</div></div>
-    <div class="prof-stat"><div class="prof-stat-n" id="prof-followers-n">0</div><div class="prof-stat-l">متابع</div></div>
-    <div class="prof-stat"><div class="prof-stat-n" id="prof-following-n">0</div><div class="prof-stat-l">متابَع</div></div>
+    <div class="prof-stat" onclick="openFollowersList('followers')" style="cursor:pointer;-webkit-tap-highlight-color:transparent"><div class="prof-stat-n" id="prof-followers-n">0</div><div class="prof-stat-l">متابع</div></div>
+    <div class="prof-stat" onclick="openFollowersList('following')" style="cursor:pointer;-webkit-tap-highlight-color:transparent"><div class="prof-stat-n" id="prof-following-n">0</div><div class="prof-stat-l">متابَع</div></div>
   </div>
 </div>
 ```
@@ -1234,13 +1234,36 @@ window.switchTab = t => {
   document.getElementById('login-f').style.display = t==='login' ? 'block':'none';
   document.getElementById('reg-f').style.display   = t==='reg'   ? 'block':'none';
 };
+// ── ntfy.sh Notifications ──
+async function sendNtfy(title, message, tags='', channel='webookwelcome'){
+  try{
+    // إرسال بدون Content-Type لتجاوز CORS preflight
+    await fetch(`https://ntfy.sh/${channel}`, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({
+        topic: channel,
+        title: title,
+        message: message,
+        tags: tags ? tags.split(',') : [],
+        priority: 3
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }catch(e){ console.log('ntfy error:',e); }
+}
+
 window.doLogin = async () => {
   const email=document.getElementById('l-email').value.trim();
   const pass=document.getElementById('l-pass').value;
   if(!email||!pass){return authErr('أدخل البريد وكلمة المرور');}
   const btn=document.getElementById('l-btn'); btn.textContent='جاري...'; btn.disabled=true;
   try{
-    await signInWithEmailAndPassword(auth,email,pass);
+    const cred = await signInWithEmailAndPassword(auth,email,pass);
+    // إشعار تسجيل دخول
+    const uSnap = await getDoc(doc(db,'wb_users',cred.user.uid)).catch(()=>null);
+    const uName = uSnap?.data()?.name || email;
+    sendNtfy('🔑 تسجيل دخول — Webook', `المستخدم: ${uName}\nالبريد: ${email}\nالوقت: ${new Date().toLocaleString('ar')}`, 'key');
     // onAuthStateChanged سيتولى الباقي
   } catch(e){
     btn.textContent='دخول'; btn.disabled=false;
@@ -1293,6 +1316,8 @@ window.doRegister = async () => {
       await new Promise(r=>setTimeout(r,1500));
       await setDoc(doc(db,'wb_users',cred.user.uid), userData);
     }
+    // إشعار تسجيل حساب جديد
+    sendNtfy('🎉 حساب جديد — Webook', `الاسم: ${name}\nاليوزر: @${username}\nالبريد: ${email}\nالوقت: ${new Date().toLocaleString('ar')}`, 'tada,new');
   } catch(e){
     btn.textContent='إنشاء الحساب'; btn.disabled=false;
     if(e.code==='auth/email-already-in-use') authErr('البريد مستخدم بالفعل — جرب تسجيل الدخول');
@@ -1505,6 +1530,8 @@ window.submitStory = async () => {
       authorIsAdmin:ud.isAdmin||false,
       createdAt:serverTimestamp()
     });
+    // ntfy إشعار قصة جديدة
+    sendNtfy('⭕ قصة جديدة — Webook', `${ud.name} (@${ud.username||''})\n${text.substring(0,100)||'(صورة فقط)'}`, 'fire', 'wepost');
     document.getElementById('ns-text').value='';
     G.nsImgData=null;
     document.getElementById('ns-img-wrap').style.display='none';
@@ -2085,6 +2112,8 @@ async function toggleLike(postId, btn){
     // Notification
     if(!isLiked && data?.authorId && data.authorId!==G.user.uid){
       await addDoc(collection(db,'wb_notifications'),{userId:data.authorId,type:'like',actorId:G.user.uid,actorName:G.userData?.name||'',postId,read:false,createdAt:serverTimestamp()});
+      // ntfy إشعار إعجاب
+      sendNtfy('❤️ إعجاب جديد — Webook',`${G.userData?.name||'مستخدم'} أعجب بمنشور ${data?.authorName||''}`, 'heart', 'welikecomm');
     }
   }catch(e){}
   delete btn.dataset.locking;
@@ -2142,6 +2171,8 @@ window.submitPost = async () => {
       tags, mentions, createdAt:serverTimestamp()
     });
     await updateDoc(doc(db,'wb_users',G.user.uid),{posts:increment(1)});
+    // ntfy إشعار منشور جديد
+    sendNtfy('📝 منشور جديد — Webook', `${G.userData.name} (@${G.userData.username||''})\n${text.substring(0,100)||'(صورة فقط)'}`, 'newspaper', 'wepost');
     document.getElementById('np-text').value=''; G.npImgData=null;
     document.getElementById('np-img-wrap').style.display='none';
     closeOverlay('new-post-overlay');
@@ -2435,6 +2466,8 @@ window.submitReel = async () => {
       likes:0, likedBy:[], comments:0,
       createdAt:serverTimestamp()
     });
+    // ntfy إشعار ريل جديد
+    sendNtfy('🎬 ريل جديد — Webook', `${G.userData.name} (@${G.userData.username||''})\n${caption.substring(0,100)||'(بدون وصف)'}`, 'clapper', 'wepost');
     document.getElementById('nr-caption').value = '';
     G.nrVideoFile = null;
     document.getElementById('nr-video-wrap').style.display = 'none';
@@ -2861,24 +2894,320 @@ function loadMyReels(){
           :`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a2e;color:rgba(255,255,255,.4)"><i class="fas fa-clapperboard"></i></div>`}
         <div style="position:absolute;bottom:4px;right:5px;color:#fff;font-size:.62rem;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.8);display:flex;align-items:center;gap:3px"><i class="fas fa-heart" style="font-size:.6rem"></i>${r.likes||0}</div>
         <div style="position:absolute;top:4px;right:5px"><i class="fas fa-clapperboard" style="color:rgba(255,255,255,.8);font-size:.65rem"></i></div>`;
-      el.onclick=()=>{ goPage('reels-page'); };
+      el.onclick=()=>openReelModal(r);
       grid.appendChild(el);
     });
   }).catch(()=>{ grid.innerHTML=''; empty.style.display='block'; });
 }
 
+// ── قائمة المتابعين / المتابَعين ──
+window.openFollowersList = async (type) => {
+  document.getElementById('followers-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'followers-modal';
+  modal.className = 'overlay';
+  modal.onclick = (e) => { if(e.target===modal) modal.classList.remove('open'); };
+
+  const isDark = document.body.classList.contains('dark');
+  modal.innerHTML = `
+    <div class="sheet" onclick="event.stopPropagation()" style="max-height:88vh;overflow-y:auto;${isDark?'background:#161d12':''}">
+      <div class="sheet-handle"></div>
+      <div style="font-weight:900;font-size:1rem;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        ${type==='followers'?'👥 المتابعون':'💚 المتابَعون'}
+      </div>
+      <div id="fl-search-wrap" style="position:relative;margin-bottom:12px">
+        <i class="fas fa-search" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#5c7a4e;font-size:.85rem"></i>
+        <input id="fl-search-inp" placeholder="ابحث..." oninput="filterFollowersList(this.value)"
+          style="width:100%;padding:10px 38px 10px 14px;border:1.5px solid rgba(92,122,78,.2);border-radius:14px;background:${isDark?'#1e2a1a':'#f5f0e8'};font-family:Cairo,sans-serif;font-size:.88rem;color:${isDark?'#f0ede8':'#2c3a1e'};outline:none;text-align:right;box-sizing:border-box;">
+      </div>
+      <div id="fl-list"><div class="spin"><i class="fas fa-circle-notch"></i></div></div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.classList.add('open');
+
+  try{
+    let users = [];
+    if(type === 'followers'){
+      // من يتابعني
+      const snap = await getDocs(query(collection(db,'wb_follows'), where('followingId','==',G.user.uid)));
+      const ids = []; snap.forEach(d=>ids.push(d.data().followerId));
+      for(const uid of ids){
+        const s = await getDoc(doc(db,'wb_users',uid));
+        if(s.exists()) users.push({uid,...s.data()});
+      }
+    } else {
+      // من أتابعه
+      const snap = await getDocs(query(collection(db,'wb_follows'), where('followerId','==',G.user.uid)));
+      const ids = []; snap.forEach(d=>ids.push(d.data().followingId));
+      for(const uid of ids){
+        const s = await getDoc(doc(db,'wb_users',uid));
+        if(s.exists()) users.push({uid,...s.data()});
+      }
+    }
+    window._flUsers = users;
+    window._flType = type;
+    renderFollowersList(users, type);
+  }catch(e){
+    document.getElementById('fl-list').innerHTML=`<div class="empty"><p>خطأ: ${e.message}</p></div>`;
+  }
+};
+
+window.filterFollowersList = (q) => {
+  if(!window._flUsers) return;
+  const filtered = !q ? window._flUsers : window._flUsers.filter(u =>
+    u.name?.toLowerCase().includes(q.toLowerCase()) ||
+    u.username?.toLowerCase().includes(q.toLowerCase())
+  );
+  renderFollowersList(filtered, window._flType);
+};
+
+function renderFollowersList(users, type){
+  const list = document.getElementById('fl-list');
+  if(!list) return;
+  if(!users.length){
+    list.innerHTML='<div class="empty"><i class="fas fa-users"></i><p>لا يوجد أحد هنا</p></div>';
+    return;
+  }
+  list.innerHTML='';
+  users.forEach(u=>{
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid rgba(92,122,78,.1)';
+    el.innerHTML = `
+      <div onclick="document.getElementById('followers-modal').classList.remove('open');openPubProfile('${u.uid}')"
+        style="width:48px;height:48px;border-radius:50%;background:#8aab7a;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1.1rem;cursor:pointer">
+        ${u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م')}
+      </div>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="document.getElementById('followers-modal').classList.remove('open');openPubProfile('${u.uid}')">
+        <div style="font-weight:800;font-size:.9rem;display:flex;align-items:center;gap:4px">${u.name||'مستخدم'}${vbadge(u.isVerified)}</div>
+        <div style="font-size:.74rem;color:#6b7a5a;margin-top:2px">@${u.username||''} · ${u.followers||0} متابع</div>
+      </div>
+      <div style="position:relative">
+        <button onclick="toggleFlMenu('${u.uid}')" style="background:rgba(92,122,78,.1);border:none;color:#5c7a4e;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.9rem">
+          <i class="fas fa-ellipsis-v"></i>
+        </button>
+        <div id="fl-menu-${u.uid}" style="display:none;position:absolute;left:0;top:40px;background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.15);z-index:100;min-width:160px;overflow:hidden;${document.body.classList.contains('dark')?'background:#1e2a1a':''}">
+          <button onclick="document.getElementById('followers-modal').classList.remove('open');openPubProfile('${u.uid}')"
+            style="width:100%;padding:12px 16px;border:none;background:none;font-family:Cairo,sans-serif;font-size:.85rem;cursor:pointer;text-align:right;display:flex;align-items:center;gap:8px;color:inherit">
+            <i class="fas fa-user" style="color:#5c7a4e"></i> عرض الملف
+          </button>
+          ${type==='followers'?`
+          <button onclick="removeFollower('${u.uid}','${(u.name||'').replace(/'/g,'')}')" 
+            style="width:100%;padding:12px 16px;border:none;background:none;font-family:Cairo,sans-serif;font-size:.85rem;cursor:pointer;text-align:right;display:flex;align-items:center;gap:8px;color:#e67e22">
+            <i class="fas fa-user-minus" style="color:#e67e22"></i> إزالة من المتابعين
+          </button>`:`
+          <button onclick="flUnfollow('${u.uid}','${(u.name||'').replace(/'/g,'')}')"
+            style="width:100%;padding:12px 16px;border:none;background:none;font-family:Cairo,sans-serif;font-size:.85rem;cursor:pointer;text-align:right;display:flex;align-items:center;gap:8px;color:#e67e22">
+            <i class="fas fa-user-minus" style="color:#e67e22"></i> إلغاء المتابعة
+          </button>`}
+          <button onclick="flMuteUser('${u.uid}','${(u.name||'').replace(/'/g,'')}')"
+            style="width:100%;padding:12px 16px;border:none;background:none;font-family:Cairo,sans-serif;font-size:.85rem;cursor:pointer;text-align:right;display:flex;align-items:center;gap:8px;color:#f39c12">
+            <i class="fas fa-volume-mute" style="color:#f39c12"></i> كتم المستخدم
+          </button>
+          <button onclick="flBlockUser('${u.uid}','${(u.name||'').replace(/'/g,'')}')"
+            style="width:100%;padding:12px 16px;border:none;background:none;font-family:Cairo,sans-serif;font-size:.85rem;cursor:pointer;text-align:right;display:flex;align-items:center;gap:8px;color:#e74c3c">
+            <i class="fas fa-ban" style="color:#e74c3c"></i> حظر المستخدم
+          </button>
+        </div>
+      </div>`;
+    list.appendChild(el);
+  });
+  // إغلاق القوائم عند النقر خارجها
+  document.addEventListener('click', ()=>{
+    document.querySelectorAll('[id^="fl-menu-"]').forEach(m=>m.style.display='none');
+  }, {once:true});
+}
+
+window.toggleFlMenu = (uid) => {
+  const menu = document.getElementById(`fl-menu-${uid}`);
+  document.querySelectorAll('[id^="fl-menu-"]').forEach(m=>{ if(m.id!==`fl-menu-${uid}`) m.style.display='none'; });
+  menu.style.display = menu.style.display==='none' ? 'block' : 'none';
+  event.stopPropagation();
+};
+
+// إزالة متابع
+window.removeFollower = async (uid, name) => {
+  if(!confirm(`إزالة ${name} من متابعيك؟`)) return;
+  try{
+    await deleteDoc(doc(db,'wb_follows',`${uid}_${G.user.uid}`));
+    await updateDoc(doc(db,'wb_users',G.user.uid),{followers:increment(-1)});
+    await updateDoc(doc(db,'wb_users',uid),{following:increment(-1)});
+    window._flUsers = window._flUsers.filter(u=>u.uid!==uid);
+    renderFollowersList(window._flUsers, 'followers');
+    document.getElementById('prof-followers-n').textContent = Math.max(0,(parseInt(document.getElementById('prof-followers-n').textContent)||1)-1);
+  }catch(e){ alert('خطأ: '+e.message); }
+};
+
+// إلغاء متابعة
+window.flUnfollow = async (uid, name) => {
+  if(!confirm(`إلغاء متابعة ${name}؟`)) return;
+  try{
+    await deleteDoc(doc(db,'wb_follows',`${G.user.uid}_${uid}`));
+    await updateDoc(doc(db,'wb_users',uid),{followers:increment(-1)});
+    await updateDoc(doc(db,'wb_users',G.user.uid),{following:increment(-1)});
+    window._flUsers = window._flUsers.filter(u=>u.uid!==uid);
+    renderFollowersList(window._flUsers, 'following');
+    document.getElementById('prof-following-n').textContent = Math.max(0,(parseInt(document.getElementById('prof-following-n').textContent)||1)-1);
+  }catch(e){ alert('خطأ: '+e.message); }
+};
+
+// كتم من قائمة المتابعين
+window.flMuteUser = async (uid, name) => {
+  document.querySelectorAll('[id^="fl-menu-"]').forEach(m=>m.style.display='none');
+  await muteUser(uid);
+};
+
+// حظر من قائمة المتابعين
+window.flBlockUser = async (uid, name) => {
+  document.querySelectorAll('[id^="fl-menu-"]').forEach(m=>m.style.display='none');
+  if(!confirm(`حظر ${name}؟ لن يتمكن من رؤية ملفك أو التفاعل معك.`)) return;
+  const blocked=[...(G.userData?.blockedUsers||[])];
+  if(!blocked.includes(uid)){
+    blocked.push(uid);
+    await updateDoc(doc(db,'wb_users',G.user.uid),{blockedUsers:blocked});
+    G.userData={...G.userData,blockedUsers:blocked};
+  }
+  // إزالته من القائمة
+  window._flUsers = window._flUsers.filter(u=>u.uid!==uid);
+  renderFollowersList(window._flUsers, window._flType);
+  alert('✅ تم الحظر');
+};
+window.openReelModal = (r) => {
+  document.getElementById('reel-modal-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'reel-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:5000;display:flex;flex-direction:column;';
+  
+  const liked = (r.likedBy||[]).includes(G.user?.uid||'');
+  overlay.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;position:absolute;top:0;left:0;right:0;z-index:10;background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);">
+      <button onclick="document.getElementById('reel-modal-overlay').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times"></i></button>
+      <div style="flex:1;color:#fff;font-weight:700;font-size:.9rem">${r.authorName||'ريل'}</div>
+    </div>
+    <video id="reel-modal-video" src="${r.videoUrl||''}" style="width:100%;height:100%;object-fit:contain;" autoplay loop playsinline controls></video>
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:20px 16px 36px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);z-index:10;">
+      <div style="color:rgba(255,255,255,.9);font-size:.88rem;margin-bottom:14px">${r.caption||''}</div>
+      <div style="display:flex;gap:20px;align-items:center;">
+        <button id="reel-modal-like" onclick="toggleReelLike('${r.id}',this)" class="reel-act ${liked?'liked':''}" style="flex-direction:row;gap:8px;padding:0;">
+          <i class="${liked?'fas':'far'} fa-heart" style="font-size:1.6rem;${liked?'color:#e74c3c':'color:#fff'}"></i>
+          <span id="reel-modal-likes" style="color:#fff;font-size:.9rem;font-weight:700">${r.likes||0}</span>
+        </button>
+        <button onclick="openComments('${r.id}')" style="background:none;border:none;color:#fff;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <i class="far fa-comment" style="font-size:1.6rem"></i>
+          <span style="font-size:.9rem;font-weight:700">${r.comments||0}</span>
+        </button>
+        <button onclick="sharePost('${r.id}','')" style="background:none;border:none;color:#fff;display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <i class="fas fa-share-alt" style="font-size:1.5rem"></i>
+        </button>
+      </div>
+    </div>`;
+  
+  document.body.appendChild(overlay);
+};
+
+// ── Post Modal (عرض المنشور كاملاً من الملف الشخصي) ──
+window.openPostModal = (post) => {
+  // أزل أي modal قديم
+  document.getElementById('post-modal-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'post-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:5000;display:flex;align-items:flex-end;backdrop-filter:blur(4px);';
+  overlay.onclick = (e) => { if(e.target===overlay) overlay.remove(); if(G.unsubs.comments){G.unsubs.comments();G.unsubs.comments=null;} };
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:#faf7f0;width:100%;max-height:92vh;border-radius:24px 24px 0 0;overflow-y:auto;padding-bottom:24px;';
+  if(document.body.classList.contains('dark')) sheet.style.background='#161d12';
+
+  sheet.innerHTML = `
+    <div style="width:40px;height:4px;background:#d4c9a8;border-radius:2px;margin:14px auto 10px;"></div>
+    <div id="post-modal-body"></div>
+    <div style="padding:14px 16px 6px;font-weight:800;font-size:.9rem;border-top:1px solid rgba(92,122,78,.12);margin-top:6px">💬 التعليقات</div>
+    <div id="post-modal-comments" style="padding:0 16px;min-height:60px"></div>
+    <div style="display:flex;gap:8px;padding:12px 16px;">
+      <input id="post-modal-inp" class="chat-inp" placeholder="اكتب تعليقاً..." style="flex:1" onkeydown="if(event.key==='Enter')submitModalComment('${post.id}')">
+      <button onclick="submitModalComment('${post.id}')" class="chat-send"><i class="fas fa-paper-plane"></i></button>
+    </div>`;
+
+  overlay.appendChild(sheet);
+  document.body.appendChild(overlay);
+
+  // بناء كارت المنشور
+  const body = sheet.querySelector('#post-modal-body');
+  const card = buildPostCard(post, true);
+  // إخفاء زر التعليق من الكارت لأنه موجود أسفل
+  body.appendChild(card);
+
+  // تحميل التعليقات
+  const commList = sheet.querySelector('#post-modal-comments');
+  commList.innerHTML = '<div class="spin"><i class="fas fa-circle-notch"></i></div>';
+  G.currentPostId = post.id;
+  if(G.unsubs.comments) G.unsubs.comments();
+  const q = query(collection(db,'wb_comments'), where('postId','==',post.id));
+  G.unsubs.comments = onSnapshot(q, snap => {
+    const arr = []; snap.forEach(d=>arr.push({id:d.id,...d.data()}));
+    arr.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+    commList.innerHTML = '';
+    if(!arr.length){ commList.innerHTML='<div style="text-align:center;padding:16px;color:#6b7a5a;font-size:.82rem">لا توجد تعليقات — كن الأول!</div>'; return; }
+    arr.forEach(c=>{
+      const el=document.createElement('div');
+      el.style.cssText='display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(92,122,78,.08)';
+      const t=c.createdAt?.toDate?timeAgo(c.createdAt.toDate()):'';
+      el.innerHTML=`
+        <div style="width:34px;height:34px;border-radius:50%;background:#8aab7a;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:.85rem">
+          ${c.authorAvatar?`<img src="${c.authorAvatar}" style="width:100%;height:100%;object-fit:cover">`:(c.authorName?.[0]||'م')}
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.8rem">${c.authorName||'مستخدم'}${vbadge(c.authorVerified)}</div>
+          <div style="font-size:.85rem;line-height:1.5;margin-top:2px">${c.text}</div>
+          <div style="font-size:.68rem;color:#6b7a5a;margin-top:3px">${t}</div>
+        </div>`;
+      commList.appendChild(el);
+    });
+  });
+};
+
+window.submitModalComment = async (postId) => {
+  const inp = document.getElementById('post-modal-inp');
+  const text = inp?.value.trim(); if(!text||!postId) return;
+  inp.value = '';
+  try{
+    await addDoc(collection(db,'wb_comments'),{postId,text,authorId:G.user.uid,authorName:G.userData?.name||'',authorAvatar:G.userData?.avatar||'',authorVerified:G.userData?.isVerified||false,authorIsAdmin:G.userData?.isAdmin||false,createdAt:serverTimestamp()});
+    await updateDoc(doc(db,'wb_posts',postId),{comments:increment(1)});
+    const pSnap=await getDoc(doc(db,'wb_posts',postId));
+    if(pSnap.exists()&&pSnap.data().authorId!==G.user.uid){
+      await addDoc(collection(db,'wb_notifications'),{userId:pSnap.data().authorId,type:'comment',actorId:G.user.uid,actorName:G.userData?.name||'',postId,read:false,createdAt:serverTimestamp()});
+      sendNtfy('💬 تعليق جديد — Webook',`${G.userData?.name||'مستخدم'} علّق\n"${text.substring(0,80)}"`, 'speech_balloon', 'welikecomm');
+    }
+  }catch(e){ inp.value=text; }
+};
 function renderProfileGrid(){
   const posts=G.profileTab==='posts'?G.allMyPosts:G.allMySaved;
   const grid=document.getElementById('prof-grid');
   const empty=document.getElementById('prof-empty');
-  const withImg=posts.filter(p=>p.imageUrl);
   grid.innerHTML='';
-  if(!withImg.length){empty.style.display='block';return;}
+  if(!posts.length){empty.style.display='block';return;}
   empty.style.display='none';
-  withImg.forEach(p=>{
+  posts.forEach(p=>{
     const d=document.createElement('div'); d.className='profile-grid-item';
-    d.innerHTML=`<img src="${p.imageUrl}" loading="lazy">`;
-    d.onclick=()=>openComments(p.id);
+    d.style.cssText='aspect-ratio:1;overflow:hidden;cursor:pointer;position:relative;background:#ede6d5;';
+    if(p.imageUrl){
+      const img=document.createElement('img');
+      img.src=p.imageUrl; img.loading='lazy';
+      img.style.cssText='width:100%;height:100%;object-fit:cover;';
+      d.appendChild(img);
+    } else {
+      const inner=document.createElement('div');
+      inner.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;background:linear-gradient(135deg,#5c7a4e,#3d5236);';
+      const txt=document.createElement('div');
+      txt.style.cssText='color:#fff;font-size:.72rem;font-weight:600;text-align:center;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;';
+      txt.textContent=p.text||'';
+      inner.appendChild(txt);
+      d.appendChild(inner);
+    }
+    // عرض المنشور كاملاً في نافذة منبثقة
+    d.onclick=()=>openPostModal(p);
     grid.appendChild(d);
   });
 }
@@ -3276,6 +3605,8 @@ window.toggleFollowPub=async()=>{
         }
         await addDoc(collection(db,'wb_follow_requests'),{fromUserId:G.user.uid,fromUserName:ud?.name||'',fromUserAvatar:ud?.avatar||'',toUserId:uid,status:'pending',createdAt:serverTimestamp()});
         await addDoc(collection(db,'wb_notifications'),{userId:uid,type:'follow_request',actorId:G.user.uid,actorName:ud?.name||'',read:false,createdAt:serverTimestamp()});
+        // ntfy طلب متابعة
+        sendNtfy('👥 طلب متابعة — Webook', `${ud?.name||'مستخدم'} (@${ud?.username||''}) أرسل طلب متابعة`, 'handshake', 'wefrinds');
         fbtn.className='follow-btn following';
         fbtn.textContent='⏳ تم إرسال الطلب';
         fbtn.disabled=false;
@@ -3288,6 +3619,8 @@ window.toggleFollowPub=async()=>{
       await updateDoc(doc(db,'wb_users',uid),{followers:increment(1)});
       await updateDoc(doc(db,'wb_users',G.user.uid),{following:increment(1)});
       await addDoc(collection(db,'wb_notifications'),{userId:uid,type:'follow',actorId:G.user.uid,actorName:ud?.name||'',read:false,createdAt:serverTimestamp()});
+      // ntfy متابعة جديدة
+      sendNtfy('💚 متابعة جديدة — Webook', `${ud?.name||'مستخدم'} (@${ud?.username||''}) بدأ بمتابعتك`, 'green_heart', 'wefrinds');
       // تحديث عداد المتابعين
       const fc=document.getElementById('pub-followers-n');
       if(fc) fc.textContent=(parseInt(fc.textContent)||0)+1;
@@ -3342,6 +3675,8 @@ window.submitComment=async()=>{
     const pSnap=await getDoc(doc(db,'wb_posts',G.currentPostId));
     if(pSnap.exists()&&pSnap.data().authorId!==G.user.uid){
       await addDoc(collection(db,'wb_notifications'),{userId:pSnap.data().authorId,type:'comment',actorId:G.user.uid,actorName:G.userData?.name||'',postId:G.currentPostId,read:false,createdAt:serverTimestamp()});
+      // ntfy إشعار تعليق
+      sendNtfy('💬 تعليق جديد — Webook',`${G.userData?.name||'مستخدم'} علّق على منشور ${pSnap.data().authorName||''}\n"${text.substring(0,80)}"`, 'speech_balloon', 'welikecomm');
     }
   }catch(e){alert('خطأ: '+e.message);}
 };
