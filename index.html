@@ -3569,6 +3569,27 @@ const ICE = { iceServers:[
   {urls:'stun:stun.l.google.com:19302'},
   {urls:'stun:stun2.l.google.com:19302'},
   {urls:'stun:stun4.l.google.com:19302'},
+  {urls:'stun:stun.relay.metered.ca:80'},
+  {
+    urls:'turn:a.relay.metered.ca:80',
+    username:'83e9d1f7bc64e0f09a8d3b91',
+    credential:'mtk/hGtjTMrFDmXJ'
+  },
+  {
+    urls:'turn:a.relay.metered.ca:80?transport=tcp',
+    username:'83e9d1f7bc64e0f09a8d3b91',
+    credential:'mtk/hGtjTMrFDmXJ'
+  },
+  {
+    urls:'turn:a.relay.metered.ca:443',
+    username:'83e9d1f7bc64e0f09a8d3b91',
+    credential:'mtk/hGtjTMrFDmXJ'
+  },
+  {
+    urls:'turn:a.relay.metered.ca:443?transport=tcp',
+    username:'83e9d1f7bc64e0f09a8d3b91',
+    credential:'mtk/hGtjTMrFDmXJ'
+  },
 ]};
 
 function genRoomId(a,b){ return 'call_'+[a,b].sort().join('_'); }
@@ -3616,7 +3637,7 @@ async function initWebRTC(isCaller,type){
     });
   }catch(e){
     try{ CALL.localStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }
-    catch(e2){ alert('لا يمكن الوصول للميكروفون'); endCall(); return; }
+    catch(e2){ alert('لا يمكن الوصول للميكروفون: '+e2.message); endCall(); return; }
   }
 
   // إظهار الفيديو المحلي
@@ -3629,18 +3650,28 @@ async function initWebRTC(isCaller,type){
   // إضافة tracks
   CALL.localStream.getTracks().forEach(t=>CALL.pc.addTrack(t,CALL.localStream));
 
+  // متابعة حالة الاتصال
+  CALL.pc.onconnectionstatechange=()=>{
+    const state=CALL.pc.connectionState;
+    const statusEl=document.getElementById('call-status-text');
+    if(state==='connected'){ if(statusEl) statusEl.textContent='متصل ✓'; startCallTimer(); }
+    else if(state==='connecting'){ if(statusEl) statusEl.textContent='جاري الربط...'; }
+    else if(state==='failed'){ if(statusEl) statusEl.textContent='فشل الاتصال ❌'; setTimeout(endCall,2000); }
+    else if(state==='disconnected'){ if(statusEl) statusEl.textContent='انقطع الاتصال...'; }
+  };
+
   // استقبال stream الطرف الآخر
   CALL.pc.ontrack=e=>{
+    if(!e.streams[0]) return;
     const rv=document.getElementById('call-remote-video');
     if(type==='video'){
       rv.innerHTML='<video autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>';
       rv.querySelector('video').srcObject=e.streams[0];
     } else {
-      rv.innerHTML='<audio autoplay></audio>';
-      rv.querySelector('audio').srcObject=e.streams[0];
+      let audio=rv.querySelector('audio');
+      if(!audio){ rv.innerHTML='<audio autoplay></audio>'; audio=rv.querySelector('audio'); }
+      audio.srcObject=e.streams[0];
     }
-    document.getElementById('call-status-text').textContent='متصل ✓';
-    startCallTimer();
   };
 
   // ICE candidates
@@ -3650,50 +3681,60 @@ async function initWebRTC(isCaller,type){
     await addDoc(collection(db,'wb_calls',CALL.roomId,col),ev.candidate.toJSON());
   };
 
+  CALL.pc.onicegatheringstatechange=()=>{
+    console.log('ICE gathering:',CALL.pc.iceGatheringState);
+  };
+
   const callRef=doc(db,'wb_calls',CALL.roomId);
 
   if(isCaller){
-    // إنشاء offer
-    const offer=await CALL.pc.createOffer();
+    const offer=await CALL.pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:type==='video'});
     await CALL.pc.setLocalDescription(offer);
     await updateDoc(callRef,{offer:{type:offer.type,sdp:offer.sdp}});
 
-    // الاستماع للـ answer والـ status
     CALL.unsubAnswer=onSnapshot(callRef,async snap=>{
       const d=snap.data(); if(!d) return;
       if(d.answer&&!CALL.pc.currentRemoteDescription){
-        await CALL.pc.setRemoteDescription(new RTCSessionDescription(d.answer));
+        try{ await CALL.pc.setRemoteDescription(new RTCSessionDescription(d.answer)); }catch(e){}
       }
       if(d.status==='rejected'||d.status==='ended') endCall();
     });
 
-    // الاستماع لـ ICE من الطرف الآخر
     CALL.unsubIce=onSnapshot(collection(db,'wb_calls',CALL.roomId,'calleeIce'),snap=>{
       snap.docChanges().forEach(async c=>{
-        if(c.type==='added') try{ await CALL.pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){}
+        if(c.type==='added'){
+          try{ await CALL.pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){}
+        }
       });
     });
 
   } else {
-    // استقبال offer
-    const snap=await getDoc(callRef);
-    const d=snap.data();
+    // المستقبل — انتظر قليلاً حتى يصل الـ offer
+    let d = (await getDoc(callRef)).data();
+    if(!d?.offer){
+      await new Promise(r=>setTimeout(r,2000));
+      d = (await getDoc(callRef)).data();
+    }
     if(!d?.offer){ endCall(); return; }
-    await CALL.pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-    const answer=await CALL.pc.createAnswer();
-    await CALL.pc.setLocalDescription(answer);
-    await updateDoc(callRef,{answer:{type:answer.type,sdp:answer.sdp},status:'accepted'});
 
-    // الاستماع لـ ICE من المتصل
+    try{
+      await CALL.pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+      const answer=await CALL.pc.createAnswer();
+      await CALL.pc.setLocalDescription(answer);
+      await updateDoc(callRef,{answer:{type:answer.type,sdp:answer.sdp},status:'accepted'});
+    }catch(e){ console.error('Answer error:',e); endCall(); return; }
+
     CALL.unsubIce=onSnapshot(collection(db,'wb_calls',CALL.roomId,'callerIce'),snap=>{
       snap.docChanges().forEach(async c=>{
-        if(c.type==='added') try{ await CALL.pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){}
+        if(c.type==='added'){
+          try{ await CALL.pc.addIceCandidate(new RTCIceCandidate(c.doc.data())); }catch(e){}
+        }
       });
     });
 
-    // الاستماع لإنهاء المكالمة
     CALL.unsubAnswer=onSnapshot(callRef,snap=>{
-      if(snap.data()?.status==='ended') endCall();
+      const d=snap.data();
+      if(d?.status==='ended') endCall();
     });
   }
 }
