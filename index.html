@@ -1201,10 +1201,8 @@ onAuthStateChanged(auth, async user => {
         listenNotifs();
         listenMsgBadge();
         listenIncomingCalls();
-        // تشغيل بوت الأخبار تلقائياً إذا كان مفعّلاً
         getDoc(doc(db,'wb_settings','newsbot')).then(s=>{
-          if(s.exists()&&s.data().enabled&&!_botRunning)
-            startBotSchedule(s.data().intervalHours||1);
+          if(s.exists()&&s.data().enabled&&!_botRunning) startBotSchedule(s.data().intervalHours||1);
         }).catch(()=>{});
       });
       // مراقبة تغييرات بيانات المستخدم
@@ -2033,6 +2031,29 @@ function loadFeed(){
   });
 }
 
+const POST_PREVIEW_LIMIT = 180; // عدد الحروف قبل "قراءة المزيد"
+
+function buildPostText(text, postId){
+  if(!text) return '';
+  if(text.length <= POST_PREVIEW_LIMIT) return highlightText(text);
+  const preview = text.substring(0, POST_PREVIEW_LIMIT);
+  const rest    = text.substring(POST_PREVIEW_LIMIT);
+  return `${highlightText(preview)}<span id="rest-${postId}" style="display:none">${highlightText(rest)}</span>... <button onclick="expandPost('${postId}')" id="more-btn-${postId}" style="background:none;border:none;color:#5c7a4e;font-weight:700;cursor:pointer;font-family:Cairo,sans-serif;font-size:.88rem;padding:0">قراءة المزيد ▾</button>`;
+}
+
+window.expandPost=(postId)=>{
+  const rest=document.getElementById('rest-'+postId);
+  const btn=document.getElementById('more-btn-'+postId);
+  if(!rest||!btn) return;
+  if(rest.style.display==='none'){
+    rest.style.display='inline';
+    btn.textContent='عرض أقل ▴';
+  } else {
+    rest.style.display='none';
+    btn.textContent='قراءة المزيد ▾';
+  }
+};
+
 function buildPostCard(post, forceOwner=false){
   const card = document.createElement('div');
   card.className = 'post-card';
@@ -2062,7 +2083,7 @@ function buildPostCard(post, forceOwner=false){
         </div>
       </div>` : `<button style="background:none;border:none;color:#6b7a5a;font-size:1rem;cursor:pointer;padding:6px 10px"><i class="fas fa-ellipsis-h"></i></button>`}
     </div>
-    ${post.text ? `<div class="post-text">${highlightText(post.text)}</div>` : ''}
+    ${post.text ? `<div class="post-text" id="pt-${post.id}">${buildPostText(post.text, post.id)}</div>` : ''}
     ${post.imageUrl ? `<img class="post-img" src="${post.imageUrl}" loading="lazy">` : ''}
     ${post.videoUrl ? `<video class="post-video" src="${post.videoUrl}" controls playsinline></video>` : ''}
     <div class="post-actions">
@@ -3882,50 +3903,46 @@ window.adminTab=async(btn,tab)=>{
 };
 
 // ══════════════════════════════
-// NEWS BOT SYSTEM
+// NEWS BOT — مصادر موثوقة 100%
 // ══════════════════════════════
 const NEWS_SOURCES=[
-  {id:'bbc',  name:'BBC عربي',    icon:'🌍', url:'https://feeds.bbci.co.uk/arabic/rss.xml',     color:'#bb1919'},
-  {id:'alj',  name:'الجزيرة',     icon:'📺', url:'https://www.aljazeera.net/xml/rss/all.xml',   color:'#005a7e'},
-  {id:'arb',  name:'العربية',     icon:'📡', url:'https://www.alarabiya.net/tools/rss',          color:'#c8a84b'},
-  {id:'sky',  name:'سكاي عربي',   icon:'⭐', url:'https://www.skynewsarabia.com/rss.xml',       color:'#0072bc'},
-  {id:'goal', name:'Goal رياضة',  icon:'⚽', url:'https://www.goal.com/feeds/ar/news',          color:'#00a650'},
+  {id:'bbc_main',  name:'BBC عربي - عام',    icon:'🌍', url:'https://feeds.bbci.co.uk/arabic/rss.xml',                   color:'#bb1919'},
+  {id:'bbc_mid',   name:'BBC الشرق الأوسط',  icon:'🗺️', url:'https://feeds.bbci.co.uk/arabic/middleeast/rss.xml',        color:'#c0392b'},
+  {id:'bbc_sport', name:'BBC رياضة',          icon:'⚽', url:'https://feeds.bbci.co.uk/arabic/sport/rss.xml',             color:'#27ae60'},
+  {id:'bbc_tech',  name:'BBC تقنية وعلوم',   icon:'💻', url:'https://feeds.bbci.co.uk/arabic/science_and_tech/rss.xml',  color:'#8e44ad'},
+  {id:'bbc_biz',   name:'BBC اقتصاد',        icon:'💰', url:'https://feeds.bbci.co.uk/arabic/business/rss.xml',          color:'#d4ac0d'},
+  {id:'alj',       name:'الجزيرة',            icon:'📺', url:'https://www.aljazeera.net/xml/rss/all.xml',                 color:'#005a7e'},
+  {id:'rt',        name:'RT عربي',            icon:'📡', url:'https://arabic.rt.com/rss/',                                color:'#c0392b'},
 ];
 
 let _botInterval=null, _botRunning=false;
 window._botInterval_hours=1;
 
-// جلب RSS مع عدة proxies احتياطية
+// جلب RSS — 3 proxies احتياطية
 async function fetchRSS(url){
-  const proxies=[
-    u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,
-    u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-    u=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  const tries=[
+    ()=>fetch('https://corsproxy.io/?'+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)}).then(r=>r.text()),
+    ()=>fetch('https://api.allorigins.win/get?url='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)}).then(r=>r.json()).then(d=>d.contents||''),
+    ()=>fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)}).then(r=>r.text()),
   ];
-  for(const makeUrl of proxies){
-    try{
-      const res=await fetch(makeUrl(url),{signal:AbortSignal.timeout(8000)});
-      let text='';
-      if(makeUrl(url).includes('allorigins')){
-        const j=await res.json(); text=j.contents||'';
-      } else { text=await res.text(); }
-      if(text&&text.includes('<item>')) return text;
-    }catch(e){ console.log('RSS proxy failed:',e.message); }
+  for(const t of tries){
+    try{ const txt=await t(); if(txt&&txt.includes('<item>')) return txt; }
+    catch(e){ console.log('RSS proxy failed:',e.message); }
   }
-  throw new Error('تعذّر جلب الأخبار — تحقق من اتصال الإنترنت أو جرّب مصدراً آخر');
+  throw new Error('تعذّر جلب الأخبار من هذا المصدر');
 }
 
 async function adminNewsBot(){
   const content=document.getElementById('admin-content');
-  let cfg={enabled:false,sources:NEWS_SOURCES.map(s=>s.id),intervalHours:1};
+  let cfg={enabled:false,sources:['bbc_main','bbc_sport','alj'],intervalHours:1};
   try{ const s=await getDoc(doc(db,'wb_settings','newsbot')); if(s.exists()) cfg={...cfg,...s.data()}; }catch(e){}
   window._botInterval_hours=cfg.intervalHours||1;
   const lastRun=cfg.lastRun?'آخر نشر: '+new Date(cfg.lastRun.seconds*1000).toLocaleString('ar'):'لم ينشر بعد';
 
-  content.innerHTML=`
-  <div style="padding:16px;color:#fff;font-family:Cairo,sans-serif">
+  content.innerHTML=`<div style="padding:16px;color:#fff;font-family:Cairo,sans-serif">
+
     <div style="background:linear-gradient(135deg,#1e3a5f,#2d5a8e);border-radius:16px;padding:18px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
-      <div style="width:54px;height:54px;border-radius:50%;background:#0f2a4a;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">🤖</div>
+      <div style="font-size:2rem">🤖</div>
       <div style="flex:1">
         <div style="font-weight:900;font-size:1rem">بوت الأخبار التلقائي</div>
         <div id="bot-status-text" style="font-size:.75rem;color:rgba(255,255,255,.6);margin-top:3px">${lastRun}</div>
@@ -3945,28 +3962,28 @@ async function adminNewsBot(){
     </div>
 
     <div style="background:#1a1a2e;border-radius:14px;padding:14px;margin-bottom:14px">
-      <div style="font-weight:800;font-size:.88rem;margin-bottom:12px;color:rgba(255,255,255,.9)">📡 مصادر الأخبار</div>
+      <div style="font-weight:800;font-size:.88rem;margin-bottom:12px">📡 مصادر الأخبار</div>
       ${NEWS_SOURCES.map(s=>`
-        <label style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer">
-          <input type="checkbox" id="src-${s.id}" ${cfg.sources.includes(s.id)?'checked':''} onchange="saveBotSettings()" style="width:18px;height:18px;accent-color:${s.color};cursor:pointer">
-          <span style="font-size:1.1rem">${s.icon}</span>
-          <span style="font-weight:700;font-size:.85rem">${s.name}</span>
-          <span style="margin-right:auto;font-size:.68rem;color:rgba(255,255,255,.3)">${s.url.split('/')[2]}</span>
+        <label style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer">
+          <input type="checkbox" id="src-${s.id}" ${(cfg.sources||[]).includes(s.id)?'checked':''} onchange="saveBotSettings()" style="width:18px;height:18px;accent-color:${s.color};cursor:pointer">
+          <span style="font-size:1.05rem">${s.icon}</span>
+          <span style="font-weight:700;font-size:.84rem">${s.name}</span>
+          <span style="margin-right:auto;background:rgba(46,204,113,.1);color:#2ecc71;border-radius:8px;padding:2px 7px;font-size:.65rem;font-weight:700">✅ موثوق</span>
         </label>`).join('')}
     </div>
 
     <div style="background:#1a1a2e;border-radius:14px;padding:14px;margin-bottom:14px">
-      <div style="font-weight:800;font-size:.88rem;margin-bottom:10px;color:rgba(255,255,255,.9)">⏱ فاصل النشر</div>
+      <div style="font-weight:800;font-size:.88rem;margin-bottom:10px">⏱ فاصل النشر</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${[1,2,3,6,12,24].map(h=>`
-          <button onclick="setBotInterval(${h})" id="int-${h}" style="padding:8px 16px;border-radius:20px;border:1.5px solid ${cfg.intervalHours===h?'#3498db':'rgba(255,255,255,.15)'};background:${cfg.intervalHours===h?'rgba(52,152,219,.2)':'transparent'};color:${cfg.intervalHours===h?'#3498db':'rgba(255,255,255,.5)'};font-family:Cairo,sans-serif;font-weight:700;font-size:.8rem;cursor:pointer">
+          <button onclick="setBotInterval(${h})" id="int-${h}" style="padding:8px 16px;border-radius:20px;border:1.5px solid ${(cfg.intervalHours||1)===h?'#3498db':'rgba(255,255,255,.15)'};background:${(cfg.intervalHours||1)===h?'rgba(52,152,219,.2)':'transparent'};color:${(cfg.intervalHours||1)===h?'#3498db':'rgba(255,255,255,.5)'};font-family:Cairo,sans-serif;font-weight:700;font-size:.8rem;cursor:pointer">
             كل ${h===1?'ساعة':h+' ساعات'}
           </button>`).join('')}
       </div>
     </div>
 
     <div style="background:#1a1a2e;border-radius:14px;padding:14px">
-      <div style="font-weight:800;font-size:.88rem;margin-bottom:10px;color:rgba(255,255,255,.9)">📋 آخر الأخبار المنشورة</div>
+      <div style="font-weight:800;font-size:.88rem;margin-bottom:10px">📋 آخر الأخبار المنشورة</div>
       <div id="bot-log"><div style="color:rgba(255,255,255,.3);text-align:center;padding:20px;font-size:.8rem">⏳ جاري التحميل...</div></div>
     </div>
   </div>`;
@@ -4010,61 +4027,58 @@ function stopBotSchedule(){ _botRunning=false; clearInterval(_botInterval); _bot
 window.runNewsBotNow=async()=>{
   const statusEl=document.getElementById('bot-status-text');
   const btn=document.getElementById('bot-run-btn');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ جاري...'; }
+  if(btn){btn.disabled=true;btn.textContent='⏳ جاري...';}
   if(statusEl) statusEl.textContent='⏳ جاري جلب الأخبار...';
   try{
     const s=await getDoc(doc(db,'wb_settings','newsbot'));
-    const cfg=s.exists()?s.data():{sources:NEWS_SOURCES.map(x=>x.id)};
+    const cfg=s.exists()?s.data():{sources:['bbc_main','bbc_sport','alj']};
     const active=NEWS_SOURCES.filter(x=>(cfg.sources||[]).includes(x.id));
     if(!active.length){ if(statusEl) statusEl.textContent='⚠️ اختر مصدراً واحداً على الأقل'; return; }
 
-    // جرّب مصادر حتى ينجح واحد
     let posted=false;
     const shuffled=[...active].sort(()=>Math.random()-.5);
+
     for(const src of shuffled){
+      if(posted) break;
       try{
         if(statusEl) statusEl.textContent=`📡 جاري جلب ${src.name}...`;
         const xml=await fetchRSS(src.url);
         const parser=new DOMParser();
-        const doc2=parser.parseFromString(xml,'text/xml');
-        const items=Array.from(doc2.querySelectorAll('item')).slice(0,15);
+        const xmlDoc=parser.parseFromString(xml,'text/xml');
+        const items=Array.from(xmlDoc.querySelectorAll('item')).slice(0,20);
         if(!items.length) continue;
 
-        // اختر خبراً لم يُنشر بعد
         for(const item of items.sort(()=>Math.random()-.5)){
-          const title=(item.querySelector('title')?.textContent||'').trim();
-          const desc=(item.querySelector('description')?.textContent||'').replace(/<[^>]+>/g,'').trim().substring(0,400);
+          const title=(item.querySelector('title')?.textContent||'').replace('<![CDATA[','').replace(']]>','').trim();
+          const desc=(item.querySelector('description')?.textContent||'').replace(/<[^>]+>/g,'').replace('<![CDATA[','').replace(']]>','').trim().substring(0,500);
           const link=(item.querySelector('link')?.textContent||'').trim();
           if(!title||title.length<10) continue;
 
-          const newsId='bot_'+btoa(unescape(encodeURIComponent(title))).substring(0,24).replace(/[^a-zA-Z0-9]/g,'');
+          // تجنب التكرار
+          const newsId='bot_'+btoa(unescape(encodeURIComponent(title.substring(0,50)))).replace(/[^a-zA-Z0-9]/g,'').substring(0,28);
           const dup=await getDoc(doc(db,'wb_posts',newsId));
           if(dup.exists()) continue;
 
-          const text=`${src.icon} **${src.name}**\n\n📌 ${title}\n\n${desc}${desc.length>=400?'...':''}`;
+          const text=`${src.icon} **${src.name}**\n\n📌 ${title}\n\n${desc}${desc.length>=500?'...':''}`;
           await setDoc(doc(db,'wb_posts',newsId),{
             text, authorId:'bot_news', authorName:src.name, authorAvatar:'',
             authorVerified:true, authorIsAdmin:false,
-            isBot:true, sourceId:src.id, sourceName:src.name,
-            sourceLink:link||'',
-            likes:0,likedBy:[],comments:0,savedBy:[],
+            isBot:true, sourceId:src.id, sourceName:src.name, sourceLink:link,
+            likes:0, likedBy:[], comments:0, savedBy:[],
             createdAt:serverTimestamp()
           });
           await setDoc(doc(db,'wb_settings','newsbot'),{lastRun:serverTimestamp()},{merge:true});
           await addDoc(collection(db,'wb_bot_log'),{title,source:src.name,link,postedAt:serverTimestamp()});
-          if(statusEl) statusEl.textContent=`✅ ${title.substring(0,60)}${title.length>60?'...':''}`;
-          loadBotLog();
-          posted=true;
-          break;
+          if(statusEl) statusEl.textContent=`✅ ${title.substring(0,55)}${title.length>55?'...':''}`;
+          loadBotLog(); posted=true; break;
         }
-        if(posted) break;
       }catch(e){ console.log('Source failed:',src.name,e.message); continue; }
     }
-    if(!posted&&statusEl) statusEl.textContent='⚠️ لا أخبار جديدة — كل الأخبار منشورة مسبقاً';
+    if(!posted&&statusEl) statusEl.textContent='⚠️ جميع الأخبار منشورة مسبقاً أو المصادر غير متاحة';
   }catch(e){
     if(statusEl) statusEl.textContent='❌ خطأ: '+e.message;
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='⚡ نشر الآن'; }
+    if(btn){btn.disabled=false;btn.textContent='⚡ نشر الآن';}
   }
 };
 
@@ -4082,9 +4096,9 @@ async function loadBotLog(){
           <div style="font-weight:700;font-size:.78rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.title||'—'}</div>
           <div style="font-size:.68rem;color:rgba(255,255,255,.35);margin-top:2px">${l.source||''} · ${l.postedAt?.toDate?l.postedAt.toDate().toLocaleString('ar'):''}</div>
         </div>
-        ${l.link?`<a href="${l.link}" target="_blank" style="color:#3498db;font-size:.7rem;flex-shrink:0;text-decoration:none;padding-top:2px">رابط ↗</a>`:''}
+        ${l.link?`<a href="${l.link}" target="_blank" style="color:#3498db;font-size:.7rem;flex-shrink:0;text-decoration:none">رابط ↗</a>`:''}
       </div>`).join('');
-  }catch(e){ el.innerHTML='<div style="color:#e74c3c;font-size:.78rem;text-align:center;padding:10px">خطأ في التحميل</div>'; }
+  }catch(e){ el.innerHTML='<div style="color:#e74c3c;font-size:.78rem;text-align:center;padding:10px">خطأ</div>'; }
 }
 
 async function adminLoadStats(){
