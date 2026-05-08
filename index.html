@@ -198,8 +198,9 @@ body.dark .msg-item{border-color:rgba(92,122,78,.2);}
 .msg-item:hover{background:rgba(92,122,78,.05);}
 .msg-av{width:52px;height:52px;border-radius:50%;background:#8aab7a;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:1.1rem;overflow:hidden;position:relative;}
 .msg-av img{width:100%;height:100%;object-fit:cover;}
-.online-dot{position:absolute;bottom:1px;left:1px;width:14px;height:14px;background:#2ecc71;border-radius:50%;border:2.5px solid #f5f0e8;}
+.online-dot{position:absolute;bottom:1px;left:1px;width:14px;height:14px;background:#2ecc71;border-radius:50%;border:2.5px solid #f5f0e8;animation:pulse 2s infinite;}
 body.dark .online-dot{border-color:#0f1410;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(46,204,113,.4);}50%{box-shadow:0 0 0 5px rgba(46,204,113,0);}}
 .unread-badge{width:20px;height:20px;background:#5c7a4e;color:#fff;border-radius:50%;font-size:.65rem;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
 /* ── Chat ── */
@@ -475,6 +476,7 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
   <div class="prof-av" id="prof-av">م</div>
   <div style="color:#fff;font-size:1.25rem;font-weight:900;margin-bottom:4px" id="prof-name">—</div>
   <div style="color:rgba(255,255,255,.7);font-size:.82rem" id="prof-handle">@—</div>
+  <div id="prof-online-status" style="display:none;align-items:center;justify-content:center;gap:5px;margin-top:4px;font-size:.72rem;font-weight:600"></div>
   <div style="color:rgba(255,255,255,.8);font-size:.8rem;margin-top:6px;padding:0 20px" id="prof-bio"></div>
   <a id="prof-link" href="#" target="_blank" style="color:rgba(255,255,255,.65);font-size:.78rem;margin-top:4px;display:none"><i class="fas fa-link"></i> <span id="prof-link-text"></span></a>
   <div style="display:flex;justify-content:center;gap:32px;margin-top:18px">
@@ -1075,6 +1077,7 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
       <div id="pub-av" style="width:80px;height:80px;border-radius:50%;border:3px solid rgba(255,255,255,.3);margin:0 auto 12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:900;color:#fff;overflow:hidden"></div>
       <div id="pub-name" style="color:#fff;font-size:1.2rem;font-weight:900"></div>
       <div id="pub-handle" style="color:rgba(255,255,255,.7);font-size:.8rem"></div>
+      <div id="pub-online-status" style="display:none;align-items:center;justify-content:center;gap:5px;margin-top:5px;font-size:.75rem;font-weight:600"></div>
       <div id="pub-bio-t" style="color:rgba(255,255,255,.8);font-size:.8rem;margin-top:6px"></div>
       <div style="display:flex;justify-content:center;gap:28px;margin-top:16px">
         <div class="prof-stat"><div class="prof-stat-n" id="pub-posts-n">0</div><div class="prof-stat-l">منشور</div></div>
@@ -1228,6 +1231,8 @@ onAuthStateChanged(auth, async user => {
         listenNotifs();
         listenMsgBadge();
         listenIncomingCalls();
+        // ── نظام الحضور (متصل/غير متصل) ──
+        setUserOnline(user.uid);
       });
       // مراقبة تغييرات بيانات المستخدم
       if(G.unsubs.userData) G.unsubs.userData();
@@ -1356,13 +1361,13 @@ window.doRegister = async () => {
 };
 window.doLogout = async () => {
   if(!confirm('هل تريد تسجيل الخروج؟'))return;
-  // إيقاف كل المستمعين
   Object.values(G.unsubs||{}).forEach(fn=>{ try{ if(typeof fn==='function') fn(); }catch(e){} });
   G.unsubs={};
-  // إيقاف المكالمة إن كانت نشطة
+  clearInterval(_presenceInterval);
   if(CALL?.roomId) endCall().catch(()=>{});
-  // إيقاف observer الريلز
   if(G._reelObserver){ G._reelObserver.disconnect(); G._reelObserver=null; }
+  // تعيين offline قبل الخروج
+  if(G.user) await setUserOffline(G.user.uid).catch(()=>{});
   G.user=null; G.userData=null;
   document.getElementById('main-hdr').style.display='none';
   document.getElementById('stories-wrap').style.display='none';
@@ -2616,7 +2621,13 @@ function openChat(chatId, otherId, otherUser){
   G.currentChatId=chatId; G.currentChatOtherUid=otherId;
   G._chatOtherUser=otherUser;
   document.getElementById('chat-other-name').innerHTML=(otherUser.name||'مستخدم')+vbadge(otherUser.isVerified);
-  document.getElementById('chat-other-status').textContent=otherUser.isOnline?'متصل الآن':'';
+  // حالة الاتصال
+  const statusEl = document.getElementById('chat-other-status');
+  if(otherUser.isOnline){
+    statusEl.innerHTML = '<span style="color:#2ecc71;display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:#2ecc71;display:inline-block"></span>متصل الآن</span>';
+  } else {
+    statusEl.textContent = otherUser.lastSeen ? 'آخر ظهور ' + formatLastSeen(otherUser.lastSeen) : '';
+  }
   const av=document.getElementById('chat-other-av');
   av.innerHTML=otherUser.avatar?`<img src="${otherUser.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(otherUser.name?.[0]||'م');
   document.getElementById('chat-screen').classList.add('open');
@@ -2815,6 +2826,12 @@ async function loadMyProfile(){
     const ud=snap.data(); G.userData=ud;
     document.getElementById('prof-name').innerHTML=(ud.name||'—')+vbadge(ud.isVerified,'lg');
     document.getElementById('prof-handle').textContent='@'+(ud.username||'—');
+    // حالة الاتصال في بروفايلي
+    const myStatusEl = document.getElementById('prof-online-status');
+    if(myStatusEl){
+      myStatusEl.style.display='flex';
+      myStatusEl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:#2ecc71;display:inline-block;box-shadow:0 0 6px #2ecc71;animation:pulse 2s infinite"></span><span style="color:#2ecc71">متصل الآن</span>`;
+    }
     document.getElementById('prof-bio').textContent=ud.bio||'';
     document.getElementById('prof-av').innerHTML=ud.avatar?`<img src="${ud.avatar}" style="width:100%;height:100%;object-fit:cover">`:(ud.name?.[0]||'م');
     document.getElementById('prof-followers-n').textContent=ud.followers||0;
@@ -3578,6 +3595,19 @@ window.openPubProfile=async(uid)=>{
     document.getElementById('pub-posts-n').textContent=u.posts||0;
     document.getElementById('pub-followers-n').textContent=u.followers||0;
     document.getElementById('pub-av').innerHTML=u.avatar?`<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover">`:(u.name?.[0]||'م');
+
+    // ── حالة الاتصال ──
+    const statusEl = document.getElementById('pub-online-status');
+    if(statusEl){
+      statusEl.style.display='flex';
+      if(u.isOnline){
+        statusEl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:#2ecc71;display:inline-block;box-shadow:0 0 6px #2ecc71"></span><span style="color:#2ecc71">متصل الآن</span>`;
+      } else if(u.lastSeen){
+        statusEl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.4);display:inline-block"></span><span style="color:rgba(255,255,255,.55)">آخر ظهور ${formatLastSeen(u.lastSeen)}</span>`;
+      } else {
+        statusEl.style.display='none';
+      }
+    }
     // حالة المتابعة
     const fSnap=await getDoc(doc(db,'wb_follows',`${G.user.uid}_${uid}`));
     const isFollowing=fSnap.exists();
@@ -4800,6 +4830,7 @@ window.startCall=async(type)=>{
     createdAt:serverTimestamp()
   });
   openCallScreen(type,false);
+  playCallerTone();
   await initWebRTC(true,type);
 };
 
@@ -4956,6 +4987,7 @@ function startCallTimer(){
 }
 
 window.endCall=async()=>{
+  stopRingtone();
   clearInterval(CALL.timer);
   clearTimeout(_callControlsTimer);
   CALL.unsubAnswer?.(); CALL.unsubIce?.();
@@ -4988,7 +5020,124 @@ window.toggleCallCamera=()=>{
   btn.querySelector('i').className=CALL.isCamOff?'fas fa-video-slash':'fas fa-video';
 };
 
-// ── الاستماع للمكالمات الواردة ──
+// ── صوت رنين المكالمة ──
+let _ringtone = null;
+function playRingtone(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let startTime = ctx.currentTime;
+    const playBeep = (time) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(0.4, time + 0.05);
+      gain.gain.linearRampToValueAtTime(0.4, time + 0.3);
+      gain.gain.linearRampToValueAtTime(0, time + 0.4);
+      osc.start(time); osc.stop(time + 0.4);
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.frequency.value = 660;
+      osc2.type = 'sine';
+      gain2.gain.setValueAtTime(0, time + 0.45);
+      gain2.gain.linearRampToValueAtTime(0.4, time + 0.5);
+      gain2.gain.linearRampToValueAtTime(0.4, time + 0.8);
+      gain2.gain.linearRampToValueAtTime(0, time + 0.9);
+      osc2.start(time + 0.45); osc2.stop(time + 0.9);
+    };
+    for(let i=0; i<8; i++) playBeep(startTime + i * 1.5);
+    _ringtone = ctx;
+    // أوقف بعد 12 ثانية
+    setTimeout(stopRingtone, 12000);
+  }catch(e){ console.log('Ringtone error:', e); }
+}
+function stopRingtone(){
+  try{ _ringtone?.close(); }catch(e){}
+  _ringtone = null;
+}
+// نغمة الاتصال للمتصل
+function playCallerTone(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const playDial = (time) => {
+      [440, 480].forEach(freq => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.15, time);
+        gain.gain.linearRampToValueAtTime(0.15, time + 1.0);
+        gain.gain.linearRampToValueAtTime(0, time + 1.1);
+        osc.start(time); osc.stop(time + 1.1);
+      });
+    };
+    for(let i=0; i<6; i++) playDial(ctx.currentTime + i * 2);
+    if(_ringtone) try{_ringtone.close();}catch(e){}
+    _ringtone = ctx;
+    setTimeout(stopRingtone, 12000);
+  }catch(e){}
+}
+
+// ══════════════════════════════
+// PRESENCE SYSTEM — متصل/غير متصل
+// ══════════════════════════════
+let _presenceInterval = null;
+
+async function setUserOnline(uid){
+  if(!uid) return;
+  try{
+    await updateDoc(doc(db,'wb_users',uid),{
+      isOnline: true,
+      lastSeen: serverTimestamp()
+    });
+  }catch(e){}
+
+  // تحديث كل 30 ثانية للتأكيد
+  clearInterval(_presenceInterval);
+  _presenceInterval = setInterval(async()=>{
+    if(!G.user) return clearInterval(_presenceInterval);
+    try{ await updateDoc(doc(db,'wb_users',G.user.uid),{isOnline:true, lastSeen:serverTimestamp()}); }catch(e){}
+  }, 30000);
+
+  // عند إغلاق/تحديث الصفحة
+  window.addEventListener('beforeunload', ()=>setUserOffline(uid));
+  // عند إخفاء التبويب
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden){
+      setUserOffline(uid);
+    } else {
+      setUserOnline(uid);
+    }
+  });
+}
+
+async function setUserOffline(uid){
+  if(!uid) return;
+  clearInterval(_presenceInterval);
+  try{
+    await updateDoc(doc(db,'wb_users',uid),{
+      isOnline: false,
+      lastSeen: serverTimestamp()
+    });
+  }catch(e){}
+}
+
+// دالة مساعدة لعرض وقت آخر ظهور
+function formatLastSeen(lastSeen){
+  if(!lastSeen) return '';
+  const date = lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen);
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff/60000);
+  if(mins < 1) return 'منذ لحظات';
+  if(mins < 60) return `منذ ${mins} دقيقة`;
+  const hours = Math.floor(mins/60);
+  if(hours < 24) return `منذ ${hours} ساعة`;
+  return `منذ ${Math.floor(hours/24)} يوم`;
+}
+
 function listenIncomingCalls(){
   if(!G.user)return;
   if(G.unsubs.calls) G.unsubs.calls();
@@ -5008,11 +5157,13 @@ function listenIncomingCalls(){
       document.getElementById('incoming-call').style.display='block';
       G._chatOtherUser={name:call.callerName,avatar:call.callerAvatar,isVerified:false};
       G.currentChatOtherUid=call.callerId;
+      playRingtone();
     });
   });
 }
 
 window.acceptIncomingCall=async()=>{
+  stopRingtone();
   document.getElementById('incoming-call').style.display='none';
   await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'accepted'});
   openCallScreen(CALL.type,true);
@@ -5020,6 +5171,7 @@ window.acceptIncomingCall=async()=>{
 };
 
 window.rejectIncomingCall=async()=>{
+  stopRingtone();
   document.getElementById('incoming-call').style.display='none';
   if(CALL.roomId) await updateDoc(doc(db,'wb_calls',CALL.roomId),{status:'rejected'}).catch(()=>{});
   CALL.roomId=null;
