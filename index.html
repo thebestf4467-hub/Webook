@@ -2621,8 +2621,22 @@ function closeShareSheet() {
 async function shareToInstagram() {
   closeShareSheet();
   if (!SS.cardBlob) await generateShareImage();
+  if (!SS.cardBlob) { window.location.href = 'instagram://story-camera'; return; }
 
-  if (SS.cardBlob && navigator.share) {
+  try {
+    // الطريقة الصحيحة: نسخ الصورة للـ clipboard ثم فتح انستغرام
+    // iOS 16+ يدعم clipboard.write مع images
+    const item = new ClipboardItem({ 'image/png': SS.cardBlob });
+    await navigator.clipboard.write([item]);
+    // فتح انستغرام على شاشة القصة — المستخدم يلصق من الـ clipboard
+    window.location.href = 'instagram://story-camera';
+    return;
+  } catch(e) {
+    // إذا فشل clipboard — جرّب Web Share API
+  }
+
+  // Web Share API مع الملف
+  if (navigator.share) {
     try {
       const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
@@ -2631,16 +2645,14 @@ async function shareToInstagram() {
       }
     } catch(e) { if (e.name === 'AbortError') return; }
   }
-  // fallback: حمّل الصورة وافتح انستغرام
-  if (SS.cardBlob) {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(SS.cardBlob);
-    a.download = 'webook-post.png';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => { window.location.href = 'instagram://story-camera'; }, 800);
-  } else {
-    window.location.href = 'instagram://story-camera';
-  }
+
+  // آخر حل: حمّل الصورة + افتح انستغرام
+  const blobUrl = URL.createObjectURL(SS.cardBlob);
+  const a = document.createElement('a');
+  a.href = blobUrl; a.download = 'webook-post.png';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+  setTimeout(() => { window.location.href = 'instagram://story-camera'; }, 1000);
 }
 
 // ── مشاركة في واتساب ──
