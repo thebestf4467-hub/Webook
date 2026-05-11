@@ -2471,66 +2471,60 @@ function closeShareSheet() {
 
 // ── مشاركة في قصة انستغرام ──
 async function shareToInstagram() {
-  if (!SS.cardBlob && SS.postData) {
-    // محاولة أخيرة لتوليد الصورة
-    await generateShareImage();
-    await new Promise(r => setTimeout(r, 800));
+  closeShareSheet();
+
+  // Web Share API — الأفضل على iOS (يفتح قائمة المشاركة الأصلية)
+  if (SS.cardBlob && navigator.share) {
+    try {
+      const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Webook 🌿' });
+        return;
+      }
+    } catch(e) {
+      if (e.name === 'AbortError') return; // المستخدم أغلق القائمة
+    }
   }
 
+  // بديل: تحميل الصورة + فتح انستغرام
   if (SS.cardBlob) {
-    try {
-      // حفظ الصورة ثم فتح انستغرام
-      const url = URL.createObjectURL(SS.cardBlob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'webook-post.png';
-      a.click();
-      URL.revokeObjectURL(url);
-      // فتح انستغرام على شاشة القصة
-      setTimeout(() => {
-        window.location.href = 'instagram://story-camera';
-        // إذا لم يفتح انستغرام بعد ثانيتين
-        setTimeout(() => {
-          const installed = confirm('هل تريد فتح متجر التطبيقات لتحميل انستغرام؟');
-          if (installed) window.open('https://www.instagram.com', '_blank');
-        }, 2000);
-      }, 500);
-    } catch(e) {
-      // Web Share API كبديل
-      if (navigator.share && SS.cardBlob) {
-        const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Webook' });
-          return;
-        }
-      }
-      window.location.href = 'instagram://story-camera';
-    }
+    const url = URL.createObjectURL(SS.cardBlob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'webook-post.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setTimeout(() => { window.location.href = 'instagram://story-camera'; }, 800);
   } else {
-    // بدون صورة — فتح انستغرام مباشرة
     window.location.href = 'instagram://story-camera';
-    setTimeout(() => {
-      alert('📸 احفظ البطاقة يدوياً ثم شاركها في قصتك!');
-    }, 1500);
   }
-  closeShareSheet();
 }
 
 // ── مشاركة في واتساب ──
 function shareToWhatsApp() {
+  closeShareSheet();
   const url = location.origin + location.pathname + '?post=' + SS.postId;
   const text = SS.postData?.text
     ? `${SS.postData.text.substring(0,80)}...\n\n🌿 شاهده على Webook:\n${url}`
     : `🌿 شاهد هذا المنشور على Webook:\n${url}`;
-  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-  closeShareSheet();
+  window.location.href = 'whatsapp://send?text=' + encodeURIComponent(text);
+  // fallback للكمبيوتر
+  setTimeout(() => {
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  }, 1000);
 }
 
 // ── مشاركة في تيليغرام ──
 function shareToTelegram() {
+  closeShareSheet();
   const url  = location.origin + location.pathname + '?post=' + SS.postId;
   const text = SS.postData?.text ? SS.postData.text.substring(0,80)+'...' : 'منشور من Webook 🌿';
-  window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
-  closeShareSheet();
+  window.location.href = `tg://msg_url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  // fallback
+  setTimeout(() => {
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
+  }, 1000);
 }
 
 // ── نسخ الرابط ──
@@ -2538,10 +2532,12 @@ function copyPostLink() {
   const url = location.origin + location.pathname + '?post=' + SS.postId;
   navigator.clipboard?.writeText(url).then(() => {
     const btn = document.querySelector('.ss-btn.copy');
-    if (btn) { btn.innerHTML = '<i class="fas fa-check"></i>تم النسخ'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-link"></i>نسخ الرابط'; }, 2000); }
-  }).catch(() => {
-    prompt('انسخ الرابط:', url);
-  });
+    if (btn) {
+      btn.innerHTML = '<i class="fas fa-check"></i>تم النسخ ✅';
+      setTimeout(() => { btn.innerHTML = '<i class="fas fa-link"></i>نسخ الرابط'; }, 2000);
+    }
+  }).catch(() => { prompt('انسخ الرابط:', url); });
+  closeShareSheet();
 }
 
 // New Post
@@ -5548,6 +5544,14 @@ window.rejectIncomingCall=async()=>{
 
 // Close menus on click outside
 document.addEventListener('click',()=>document.querySelectorAll('.pmenu-dd').forEach(d=>d.style.display='none'));
+
+// ── تعريض دوال المشاركة للـ HTML ──
+window.sharePost         = sharePost;
+window.closeShareSheet   = closeShareSheet;
+window.shareToInstagram  = shareToInstagram;
+window.shareToWhatsApp   = shareToWhatsApp;
+window.shareToTelegram   = shareToTelegram;
+window.copyPostLink      = copyPostLink;
 </script>
 
 </body>
