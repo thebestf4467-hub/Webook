@@ -347,8 +347,222 @@ body.dark .tag-chip{background:#1e2a1a;color:#f0ede8;}
 .img-remove{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.75rem;}
 </style>
 
+<!-- html2canvas لتحويل المنشور لصورة -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- أنماط نافذة المشاركة -->
+
+<style>
+/* ── Share Sheet ── */
+#share-sheet-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+  display: none; align-items: flex-end; justify-content: center;
+  touch-action: none;
+}
+#share-sheet-overlay.open { display: flex; }
+
+#share-sheet {
+  width: 100%; max-width: 480px;
+  background: #faf7f0;
+  border-radius: 24px 24px 0 0;
+  padding: 16px 20px 32px;
+  animation: slideUp .28s ease;
+  position: relative; z-index: 100000;
+  touch-action: auto;
+}
+body.dark #share-sheet { background: #161d12; }
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.ss-handle {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: rgba(92,122,78,.25); margin: 0 auto 16px;
+}
+.ss-title {
+  font-weight: 800; font-size: 1rem; color: #2c3a1e;
+  text-align: center; margin-bottom: 18px;
+}
+body.dark .ss-title { color: #f0ede8; }
+
+/* معاينة البطاقة داخل الشيت */
+#ss-card-preview {
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
+}
+
+.ss-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ss-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 6px; border-radius: 14px; border: none; cursor: pointer;
+  background: rgba(92,122,78,.08); transition: all .18s;
+  font-family: 'Cairo', sans-serif; font-size: .72rem; font-weight: 700;
+  color: #2c3a1e;
+}
+body.dark .ss-btn { background: rgba(92,122,78,.15); color: #f0ede8; }
+.ss-btn:active { transform: scale(.95); opacity: .8; }
+.ss-btn i { font-size: 1.4rem; }
+.ss-btn.insta i { color: #c13584; }
+.ss-btn.whatsapp i { color: #25d366; }
+.ss-btn.telegram i { color: #0088cc; }
+.ss-btn.copy i { color: #5c7a4e; }
+
+.ss-cancel {
+  width: 100%; padding: 13px; border: none; border-radius: 14px;
+  background: rgba(231,76,60,.08); color: #e74c3c;
+  font-family: 'Cairo', sans-serif; font-weight: 800; font-size: .92rem;
+  cursor: pointer; margin-top: 4px;
+}
+
+/* البطاقة المخفية لتحويلها لصورة */
+#share-card-hidden {
+  position: fixed;
+  left: -9999px; top: -9999px;
+  width: 360px;
+  direction: rtl;
+  font-family: 'Cairo', sans-serif;
+  z-index: -1;
+}
+
+.sc-inner {
+  background: linear-gradient(160deg, #1a2614 0%, #0d1a0a 40%, #0a1208 100%);
+  padding: 0 0 16px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.sc-top {
+  padding: 16px 16px 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.sc-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg,#5c7a4e,#8aab7a);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;color:#fff;font-size:1.1rem;
+  overflow:hidden;flex-shrink:0;
+  border:2px solid rgba(255,255,255,.15);
+}
+.sc-avatar img { width:100%;height:100%;object-fit:cover; }
+.sc-name { font-weight:800;font-size:.9rem;color:#f0ede8; }
+.sc-handle { font-size:.72rem;color:rgba(240,237,232,.45);margin-top:2px; }
+.sc-time { font-size:.65rem;color:rgba(240,237,232,.35);margin-right:auto;
+  background:rgba(255,255,255,.06);border-radius:20px;padding:3px 8px; }
+
+.sc-post-img {
+  width:100%;max-height:220px;object-fit:cover;display:block;
+}
+.sc-text {
+  padding:12px 16px 8px;font-size:.88rem;
+  color:rgba(240,237,232,.9);line-height:1.65;
+}
+.sc-stats {
+  padding:4px 16px 10px;display:flex;gap:16px;
+}
+.sc-stat { font-size:.75rem;color:rgba(240,237,232,.5); }
+.sc-stat b { color:rgba(240,237,232,.8); }
+
+.sc-divider { height:1px;background:rgba(255,255,255,.07);margin:0 16px 12px; }
+
+.sc-wm {
+  padding:0 16px;display:flex;align-items:center;justify-content:space-between;
+}
+.sc-wm-left { display:flex;align-items:center;gap:8px; }
+.sc-wm-logo {
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,#5c7a4e,#8aab7a);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;color:#fff;font-weight:900;
+}
+.sc-wm-name { font-weight:800;color:rgba(240,237,232,.9);font-size:.82rem; }
+.sc-wm-url  { font-size:.68rem;color:rgba(240,237,232,.45); }
+.sc-wm-tag  {
+  font-size:.68rem;color:#8aab7a;font-weight:700;
+  background:rgba(92,122,78,.18);border-radius:20px;padding:4px 10px;
+}
+</style>
+
 </head>
 <body>
+
+<!-- ══════ SHARE SHEET ══════ -->
+
+<div id="share-sheet-overlay" onclick="closeShareSheet()">
+  <div id="share-sheet" onclick="event.stopPropagation()">
+    <div class="ss-handle"></div>
+    <div class="ss-title">📤 مشاركة المنشور</div>
+
+```
+<!-- معاينة البطاقة -->
+<div id="ss-card-preview"></div>
+
+<!-- أزرار المشاركة -->
+<div class="ss-actions">
+  <button class="ss-btn insta" onclick="shareToInstagram()">
+    <i class="fab fa-instagram"></i>
+    قصة انستا
+  </button>
+  <button class="ss-btn whatsapp" onclick="shareToWhatsApp()">
+    <i class="fab fa-whatsapp"></i>
+    واتساب
+  </button>
+  <button class="ss-btn telegram" onclick="shareToTelegram()">
+    <i class="fab fa-telegram"></i>
+    تيليغرام
+  </button>
+  <button class="ss-btn copy" onclick="copyPostLink()">
+    <i class="fas fa-link"></i>
+    نسخ الرابط
+  </button>
+</div>
+
+<button class="ss-cancel" onclick="closeShareSheet()">إلغاء</button>
+```
+
+  </div>
+</div>
+
+<!-- البطاقة المخفية لتحويلها لصورة -->
+
+<div id="share-card-hidden">
+  <div class="sc-inner" id="sc-inner">
+    <div class="sc-top">
+      <div class="sc-avatar" id="sc-avatar"></div>
+      <div>
+        <div class="sc-name" id="sc-name"></div>
+        <div class="sc-handle" id="sc-handle"></div>
+      </div>
+      <div class="sc-time" id="sc-time"></div>
+    </div>
+    <img class="sc-post-img" id="sc-post-img" style="display:none">
+    <div class="sc-text" id="sc-text"></div>
+    <div class="sc-stats" id="sc-stats"></div>
+    <div class="sc-divider"></div>
+    <div class="sc-wm">
+      <div class="sc-wm-left">
+        <div class="sc-wm-logo">W</div>
+        <div>
+          <div class="sc-wm-name">Webook</div>
+          <div class="sc-wm-url">webook.app</div>
+        </div>
+      </div>
+      <div class="sc-wm-tag">شاركني على Webook 🌿</div>
+    </div>
+  </div>
+</div>
 
 <!-- ══════ SPLASH ══════ -->
 
@@ -2159,10 +2373,177 @@ async function toggleSave(postId, btn){
   }catch(e){}
 }
 
-function sharePost(postId, text){
-  const url=location.origin+location.pathname+'?post='+postId;
-  if(navigator.share) navigator.share({title:'Webook',text:text||'',url});
-  else navigator.clipboard?.writeText(url).then(()=>alert('✅ تم نسخ الرابط'));
+// ══════════════════════════════
+// SHARE SYSTEM — Instagram / WhatsApp / Telegram / Copy
+// ══════════════════════════════
+const SS = { postId: null, postData: null, cardBlob: null };
+
+async function sharePost(postId, text) {
+  // جلب بيانات المنشور
+  try {
+    const snap = await getDoc(doc(db, 'wb_posts', postId));
+    if (!snap.exists()) return;
+    SS.postData = { id: postId, ...snap.data() };
+    SS.postId   = postId;
+    SS.cardBlob = null;
+    buildShareCard(SS.postData);
+  // إغلاق كل القوائم المفتوحة قبل فتح نافذة المشاركة
+    document.querySelectorAll('.pmenu-dd').forEach(d => d.style.display = 'none');
+    document.getElementById('share-sheet-overlay').classList.add('open');
+    // توليد صورة البطاقة في الخلفية
+    setTimeout(() => generateShareImage(), 300);
+  } catch(e) { console.error(e); }
+}
+
+function buildShareCard(p) {
+  // صورة المستخدم
+  const av = document.getElementById('sc-avatar');
+  av.innerHTML = p.authorAvatar
+    ? `<img src="${p.authorAvatar}">`
+    : (p.authorName?.[0] || 'م');
+
+  document.getElementById('sc-name').textContent   = p.authorName || 'مستخدم';
+  document.getElementById('sc-handle').textContent = p.authorUsername ? '@'+p.authorUsername : '';
+  document.getElementById('sc-time').textContent   = p.createdAt?.toDate ? timeAgo(p.createdAt.toDate()) : '';
+
+  // صورة المنشور
+  const img = document.getElementById('sc-post-img');
+  if (p.imageUrl) {
+    img.src = p.imageUrl;
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+  }
+
+  // النص
+  document.getElementById('sc-text').textContent = p.text
+    ? (p.text.length > 120 ? p.text.substring(0,120)+'...' : p.text)
+    : '';
+
+  // الإحصائيات
+  document.getElementById('sc-stats').innerHTML =
+    `<span class="sc-stat">❤️ <b>${p.likes||0}</b> إعجاب</span>
+     <span class="sc-stat">💬 <b>${p.comments||0}</b> تعليق</span>`;
+
+  // معاينة مصغرة في الشيت
+  const prev = document.getElementById('ss-card-preview');
+  prev.innerHTML = `
+    <div style="background:linear-gradient(160deg,#1a2614,#0a1208);border-radius:14px;padding:14px;color:#f0ede8;font-family:'Cairo',sans-serif">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#5c7a4e,#8aab7a);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;overflow:hidden;flex-shrink:0">
+          ${p.authorAvatar ? `<img src="${p.authorAvatar}" style="width:100%;height:100%;object-fit:cover">` : (p.authorName?.[0]||'م')}
+        </div>
+        <div>
+          <div style="font-weight:800;font-size:.85rem">${p.authorName||'مستخدم'}</div>
+          <div style="font-size:.7rem;opacity:.45">${p.authorUsername?'@'+p.authorUsername:''}</div>
+        </div>
+      </div>
+      ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:100%;max-height:140px;object-fit:cover;border-radius:10px;margin-bottom:8px;display:block">` : ''}
+      ${p.text ? `<div style="font-size:.82rem;opacity:.88;line-height:1.6">${p.text.length>100?p.text.substring(0,100)+'...':p.text}</div>` : ''}
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#5c7a4e,#8aab7a);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:900">W</div>
+          <span style="font-size:.72rem;font-weight:800">Webook</span>
+        </div>
+        <span style="font-size:.65rem;background:rgba(92,122,78,.2);color:#8aab7a;border-radius:20px;padding:3px 8px;font-weight:700">🌿 webook.app</span>
+      </div>
+    </div>`;
+}
+
+async function generateShareImage() {
+  try {
+    const el = document.getElementById('sc-inner');
+    // ضع العنصر مؤقتاً بعرض ثابت ليُرسم بشكل صحيح
+    document.getElementById('share-card-hidden').style.left = '-9999px';
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      logging: false
+    });
+    canvas.toBlob(blob => { SS.cardBlob = blob; }, 'image/png', 0.95);
+  } catch(e) { console.warn('html2canvas:', e); }
+}
+
+function closeShareSheet() {
+  document.getElementById('share-sheet-overlay').classList.remove('open');
+  SS.postData = null; SS.postId = null; SS.cardBlob = null;
+}
+
+// ── مشاركة في قصة انستغرام ──
+async function shareToInstagram() {
+  if (!SS.cardBlob && SS.postData) {
+    // محاولة أخيرة لتوليد الصورة
+    await generateShareImage();
+    await new Promise(r => setTimeout(r, 800));
+  }
+
+  if (SS.cardBlob) {
+    try {
+      // حفظ الصورة ثم فتح انستغرام
+      const url = URL.createObjectURL(SS.cardBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'webook-post.png';
+      a.click();
+      URL.revokeObjectURL(url);
+      // فتح انستغرام على شاشة القصة
+      setTimeout(() => {
+        window.location.href = 'instagram://story-camera';
+        // إذا لم يفتح انستغرام بعد ثانيتين
+        setTimeout(() => {
+          const installed = confirm('هل تريد فتح متجر التطبيقات لتحميل انستغرام؟');
+          if (installed) window.open('https://www.instagram.com', '_blank');
+        }, 2000);
+      }, 500);
+    } catch(e) {
+      // Web Share API كبديل
+      if (navigator.share && SS.cardBlob) {
+        const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Webook' });
+          return;
+        }
+      }
+      window.location.href = 'instagram://story-camera';
+    }
+  } else {
+    // بدون صورة — فتح انستغرام مباشرة
+    window.location.href = 'instagram://story-camera';
+    setTimeout(() => {
+      alert('📸 احفظ البطاقة يدوياً ثم شاركها في قصتك!');
+    }, 1500);
+  }
+  closeShareSheet();
+}
+
+// ── مشاركة في واتساب ──
+function shareToWhatsApp() {
+  const url = location.origin + location.pathname + '?post=' + SS.postId;
+  const text = SS.postData?.text
+    ? `${SS.postData.text.substring(0,80)}...\n\n🌿 شاهده على Webook:\n${url}`
+    : `🌿 شاهد هذا المنشور على Webook:\n${url}`;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  closeShareSheet();
+}
+
+// ── مشاركة في تيليغرام ──
+function shareToTelegram() {
+  const url  = location.origin + location.pathname + '?post=' + SS.postId;
+  const text = SS.postData?.text ? SS.postData.text.substring(0,80)+'...' : 'منشور من Webook 🌿';
+  window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
+  closeShareSheet();
+}
+
+// ── نسخ الرابط ──
+function copyPostLink() {
+  const url = location.origin + location.pathname + '?post=' + SS.postId;
+  navigator.clipboard?.writeText(url).then(() => {
+    const btn = document.querySelector('.ss-btn.copy');
+    if (btn) { btn.innerHTML = '<i class="fas fa-check"></i>تم النسخ'; setTimeout(() => { btn.innerHTML = '<i class="fas fa-link"></i>نسخ الرابط'; }, 2000); }
+  }).catch(() => {
+    prompt('انسخ الرابط:', url);
+  });
 }
 
 // New Post
