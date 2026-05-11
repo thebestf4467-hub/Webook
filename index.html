@@ -11,8 +11,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="application-name" content="Webook">
 <meta name="theme-color" content="#5c7a4e">
+<link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%235c7a4e'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='white'>W</text></svg>">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%235c7a4e'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='white'>W</text></svg>">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/Webook/sw.js').catch(() => {});
+  }
+</script>
 
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -5712,6 +5718,92 @@ window.rejectIncomingCall=async()=>{
 
 // Close menus on click outside
 document.addEventListener('click',()=>document.querySelectorAll('.pmenu-dd').forEach(d=>d.style.display='none'));
+
+// ── PWA Install ──
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallBanner();
+});
+
+function showInstallBanner() {
+  if (document.getElementById('pwa-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-banner';
+  banner.style.cssText = `
+    position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+    background:linear-gradient(135deg,#5c7a4e,#3d5236);
+    color:#fff;border-radius:16px;padding:12px 20px;
+    display:flex;align-items:center;gap:10px;
+    font-family:Cairo,sans-serif;font-size:.85rem;font-weight:700;
+    box-shadow:0 4px 20px rgba(0,0,0,.3);z-index:9000;
+    animation:slideUp .3s ease;white-space:nowrap;
+  `;
+  banner.innerHTML = `
+    <span>📲 ثبّت Webook كتطبيق!</span>
+    <button onclick="installPWA()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 14px;border-radius:10px;font-family:Cairo,sans-serif;font-weight:800;cursor:pointer;font-size:.82rem">تثبيت</button>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:1.1rem;padding:0 4px">✕</button>
+  `;
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 8000);
+}
+
+window.installPWA = async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('pwa-banner')?.remove();
+  } else {
+    // iOS — إرشادات التثبيت
+    showIOSInstallGuide();
+  }
+};
+
+function showIOSInstallGuide() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;
+    display:flex;align-items:flex-end;justify-content:center;
+    font-family:Cairo,sans-serif;
+  `;
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;text-align:center;" onclick="event.stopPropagation()">
+      <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 20px"></div>
+      <div style="font-size:2rem;margin-bottom:8px">📲</div>
+      <div style="font-weight:900;font-size:1.1rem;color:#2c3a1e;margin-bottom:6px">ثبّت Webook على جهازك</div>
+      <div style="color:#6b7a5a;font-size:.85rem;margin-bottom:24px">للمشاركة المباشرة في انستغرام</div>
+      <div style="background:#f5f0e8;border-radius:14px;padding:16px;text-align:right;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:1.4rem">1️⃣</span>
+          <span style="font-size:.88rem;color:#2c3a1e">اضغط على زر <strong>المشاركة</strong> <span style="font-size:1.1rem">⬆️</span> في Safari</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:1.4rem">2️⃣</span>
+          <span style="font-size:.88rem;color:#2c3a1e">اختر <strong>"إضافة إلى الشاشة الرئيسية"</strong></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.4rem">3️⃣</span>
+          <span style="font-size:.88rem;color:#2c3a1e">افتح Webook من الشاشة الرئيسية وشارك!</span>
+        </div>
+      </div>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;padding:14px;background:#5c7a4e;color:#fff;border:none;border-radius:14px;font-family:Cairo,sans-serif;font-weight:800;font-size:.95rem;cursor:pointer">فهمت ✓</button>
+    </div>
+  `;
+  modal.onclick = () => modal.remove();
+  document.body.appendChild(modal);
+}
+
+// iOS — اعرض banner بعد 3 ثوان إذا مو مثبّت
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if (isIOS && !isStandalone) {
+  setTimeout(() => {
+    if (!document.getElementById('pwa-banner')) showInstallBanner();
+  }, 4000);
+}
 
 // ── تعريض دوال المشاركة للـ HTML ──
 window.sharePost         = sharePost;
