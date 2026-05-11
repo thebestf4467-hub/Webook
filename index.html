@@ -2388,8 +2388,8 @@ async function sharePost(postId, text) {
   // إغلاق كل القوائم المفتوحة قبل فتح نافذة المشاركة
     document.querySelectorAll('.pmenu-dd').forEach(d => d.style.display = 'none');
     document.getElementById('share-sheet-overlay').classList.add('open');
-    // توليد صورة البطاقة في الخلفية
-    setTimeout(() => generateShareImage(), 300);
+    // توليد صورة البطاقة فوراً
+    generateShareImage();
   } catch(e) { console.error(e); }
 }
 
@@ -2450,18 +2450,166 @@ function buildShareCard(p) {
 
 async function generateShareImage() {
   try {
-    const el = document.getElementById('sc-inner');
-    // ضع العنصر مؤقتاً بعرض ثابت ليُرسم بشكل صحيح
-    document.getElementById('share-card-hidden').style.left = '-9999px';
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: null,
-      logging: false
+    const p = SS.postData;
+    const canvas = document.createElement('canvas');
+    canvas.width  = 720;
+    canvas.height = 900;
+    const ctx = canvas.getContext('2d');
+
+    // ── خلفية داكنة ──
+    const grad = ctx.createLinearGradient(0, 0, 720, 900);
+    grad.addColorStop(0,   '#1a2614');
+    grad.addColorStop(0.4, '#0d1a0a');
+    grad.addColorStop(1,   '#0a1208');
+    ctx.fillStyle = grad;
+    ctx.roundRect(0, 0, 720, 900, 32);
+    ctx.fill();
+
+    // ── دالة مساعدة: كتابة نص عربي مع wrap ──
+    function wrapText(text, x, y, maxW, lineH) {
+      const words = text.split(' ');
+      let line = '';
+      let cy = y;
+      for (let w of words) {
+        const test = line + w + ' ';
+        if (ctx.measureText(test).width > maxW && line) {
+          ctx.fillText(line.trim(), x, cy);
+          line = w + ' ';
+          cy += lineH;
+          if (cy > 700) break;
+        } else { line = test; }
+      }
+      if (line.trim()) ctx.fillText(line.trim(), x, cy);
+      return cy + lineH;
+    }
+
+    let yPos = 60;
+
+    // ── صورة المستخدم (دائرة) ──
+    const avSize = 88;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(avSize/2 + 40, yPos + avSize/2, avSize/2, 0, Math.PI*2);
+    ctx.clip();
+    if (p.authorAvatar) {
+      try {
+        const img = await loadImage(p.authorAvatar);
+        ctx.drawImage(img, 40, yPos, avSize, avSize);
+      } catch {
+        drawAvatarFallback(ctx, 40, yPos, avSize, p.authorName);
+      }
+    } else {
+      drawAvatarFallback(ctx, 40, yPos, avSize, p.authorName);
+    }
+    ctx.restore();
+
+    // ── اسم المستخدم ──
+    ctx.textAlign = 'right';
+    ctx.direction = 'rtl';
+    ctx.fillStyle = '#f0ede8';
+    ctx.font = 'bold 34px Cairo, Arial';
+    ctx.fillText(p.authorName || 'مستخدم', 680, yPos + 38);
+
+    ctx.fillStyle = 'rgba(240,237,232,0.45)';
+    ctx.font = '26px Cairo, Arial';
+    ctx.fillText('@' + (p.authorUsername || ''), 680, yPos + 72);
+
+    yPos += avSize + 40;
+
+    // ── صورة المنشور ──
+    if (p.imageUrl) {
+      try {
+        const img = await loadImage(p.imageUrl);
+        const imgH = 340;
+        ctx.save();
+        ctx.roundRect(30, yPos, 660, imgH, 16);
+        ctx.clip();
+        ctx.drawImage(img, 30, yPos, 660, imgH);
+        ctx.restore();
+        yPos += imgH + 30;
+      } catch {}
+    }
+
+    // ── نص المنشور ──
+    if (p.text) {
+      ctx.fillStyle = 'rgba(240,237,232,0.9)';
+      ctx.font = '30px Cairo, Arial';
+      ctx.textAlign = 'right';
+      yPos = wrapText(p.text.substring(0, 200), 680, yPos, 640, 42);
+      yPos += 10;
+    }
+
+    // ── فاصل ──
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, yPos); ctx.lineTo(680, yPos);
+    ctx.stroke();
+    yPos += 30;
+
+    // ── ووترمارك ──
+    // لوجو W
+    const logoSize = 60;
+    const grd = ctx.createLinearGradient(40, yPos, 40+logoSize, yPos+logoSize);
+    grd.addColorStop(0, '#5c7a4e');
+    grd.addColorStop(1, '#8aab7a');
+    ctx.fillStyle = grd;
+    ctx.roundRect(40, yPos - logoSize/2 + 10, logoSize, logoSize, 14);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px Cairo, Arial';
+    ctx.textAlign = 'left';
+    ctx.direction = 'ltr';
+    ctx.fillText('W', 57, yPos + 28);
+
+    // اسم التطبيق
+    ctx.fillStyle = '#f0ede8';
+    ctx.font = 'bold 30px Cairo, Arial';
+    ctx.fillText('Webook', 115, yPos + 15);
+    ctx.fillStyle = 'rgba(240,237,232,0.45)';
+    ctx.font = '22px Cairo, Arial';
+    ctx.fillText('webook.app', 115, yPos + 42);
+
+    // تاج
+    ctx.fillStyle = 'rgba(92,122,78,0.25)';
+    ctx.roundRect(520, yPos - 5, 160, 44, 22);
+    ctx.fill();
+    ctx.fillStyle = '#8aab7a';
+    ctx.font = 'bold 22px Cairo, Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌿 شاركني', 600, yPos + 24);
+
+    // تحويل لـ Blob
+    await new Promise(resolve => {
+      canvas.toBlob(blob => { SS.cardBlob = blob; resolve(); }, 'image/png', 0.95);
     });
-    canvas.toBlob(blob => { SS.cardBlob = blob; }, 'image/png', 0.95);
-  } catch(e) { console.warn('html2canvas:', e); }
+
+  } catch(e) { console.warn('generateShareImage:', e); }
+}
+
+// رسم avatar fallback
+function drawAvatarFallback(ctx, x, y, size, name) {
+  const grd = ctx.createLinearGradient(x, y, x+size, y+size);
+  grd.addColorStop(0, '#5c7a4e');
+  grd.addColorStop(1, '#8aab7a');
+  ctx.fillStyle = grd;
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = '#fff';
+  ctx.font = `bold ${size*0.45}px Cairo, Arial`;
+  ctx.textAlign = 'center';
+  ctx.direction = 'ltr';
+  ctx.fillText((name||'م')[0].toUpperCase(), x + size/2, y + size*0.65);
+}
+
+// تحميل صورة مع دعم CORS
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 }
 
 function closeShareSheet() {
@@ -2472,29 +2620,23 @@ function closeShareSheet() {
 // ── مشاركة في قصة انستغرام ──
 async function shareToInstagram() {
   closeShareSheet();
+  if (!SS.cardBlob) await generateShareImage();
 
-  // Web Share API — الأفضل على iOS (يفتح قائمة المشاركة الأصلية)
   if (SS.cardBlob && navigator.share) {
     try {
       const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Webook 🌿' });
         return;
       }
-    } catch(e) {
-      if (e.name === 'AbortError') return; // المستخدم أغلق القائمة
-    }
+    } catch(e) { if (e.name === 'AbortError') return; }
   }
-
-  // بديل: تحميل الصورة + فتح انستغرام
+  // fallback: حمّل الصورة وافتح انستغرام
   if (SS.cardBlob) {
-    const url = URL.createObjectURL(SS.cardBlob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'webook-post.png';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.href = URL.createObjectURL(SS.cardBlob);
+    a.download = 'webook-post.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => { window.location.href = 'instagram://story-camera'; }, 800);
   } else {
     window.location.href = 'instagram://story-camera';
@@ -2502,29 +2644,43 @@ async function shareToInstagram() {
 }
 
 // ── مشاركة في واتساب ──
-function shareToWhatsApp() {
+async function shareToWhatsApp() {
   closeShareSheet();
-  const url = location.origin + location.pathname + '?post=' + SS.postId;
-  const text = SS.postData?.text
-    ? `${SS.postData.text.substring(0,80)}...\n\n🌿 شاهده على Webook:\n${url}`
-    : `🌿 شاهد هذا المنشور على Webook:\n${url}`;
+  if (!SS.cardBlob) await generateShareImage();
+
+  if (SS.cardBlob && navigator.share) {
+    try {
+      const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Webook 🌿' });
+        return;
+      }
+    } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  const url  = location.origin + location.pathname + '?post=' + SS.postId;
+  const text = (SS.postData?.text ? SS.postData.text.substring(0,80) + '\n\n' : '') + '🌿 شاهده على Webook:\n' + url;
   window.location.href = 'whatsapp://send?text=' + encodeURIComponent(text);
-  // fallback للكمبيوتر
-  setTimeout(() => {
-    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-  }, 1000);
+  setTimeout(() => { window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); }, 1500);
 }
 
 // ── مشاركة في تيليغرام ──
-function shareToTelegram() {
+async function shareToTelegram() {
   closeShareSheet();
+  if (!SS.cardBlob) await generateShareImage();
+
+  if (SS.cardBlob && navigator.share) {
+    try {
+      const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Webook 🌿' });
+        return;
+      }
+    } catch(e) { if (e.name === 'AbortError') return; }
+  }
   const url  = location.origin + location.pathname + '?post=' + SS.postId;
-  const text = SS.postData?.text ? SS.postData.text.substring(0,80)+'...' : 'منشور من Webook 🌿';
+  const text = SS.postData?.text ? SS.postData.text.substring(0,80) : 'منشور من Webook 🌿';
   window.location.href = `tg://msg_url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-  // fallback
-  setTimeout(() => {
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
-  }, 1000);
+  setTimeout(() => { window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank'); }, 1500);
 }
 
 // ── نسخ الرابط ──
