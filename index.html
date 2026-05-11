@@ -510,7 +510,11 @@ body.dark .ss-btn { background: rgba(92,122,78,.15); color: #f0ede8; }
     <div class="ss-title">📤 مشاركة المنشور</div>
 
 ```
-<!-- معاينة البطاقة -->
+<!-- تنبيه عام -->
+<div id="ss-save-msg" style="background:rgba(92,122,78,.08);border:1px solid rgba(92,122,78,.2);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;direction:rtl">
+  <i class="fas fa-spinner fa-spin" style="color:#5c7a4e;font-size:1.1rem;flex-shrink:0"></i>
+  <span style="font-size:.78rem;color:#5c7a4e;font-weight:700;line-height:1.5">⏳ جاري تجهيز صورة القالب...</span>
+</div>
 <div id="ss-card-preview"></div>
 
 <!-- أزرار المشاركة -->
@@ -2394,8 +2398,22 @@ async function sharePost(postId, text) {
   // إغلاق كل القوائم المفتوحة قبل فتح نافذة المشاركة
     document.querySelectorAll('.pmenu-dd').forEach(d => d.style.display = 'none');
     document.getElementById('share-sheet-overlay').classList.add('open');
-    // توليد صورة البطاقة فوراً
-    generateShareImage();
+    // توليد الصورة + حفظها + تحديث الرسالة
+    const msgEl = document.getElementById('ss-save-msg');
+    generateShareImage().then(() => {
+      if (!SS.cardBlob) return;
+      // حفظ الصورة تلقائياً فور الفتح
+      const blobUrl = URL.createObjectURL(SS.cardBlob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.download = 'webook-post.png';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      // تحديث الرسالة
+      if (msgEl) {
+        msgEl.innerHTML = '<i class="fas fa-check-circle" style="color:#5c7a4e;font-size:1.1rem;flex-shrink:0"></i><span style="font-size:.78rem;color:#5c7a4e;font-weight:700;line-height:1.5">✅ تم حفظ صورة القالب في هاتفك!</span>';
+      }
+    });
   } catch(e) { console.error(e); }
 }
 
@@ -2626,39 +2644,40 @@ function closeShareSheet() {
 // ── مشاركة في قصة انستغرام ──
 async function shareToInstagram() {
   closeShareSheet();
-  if (!SS.cardBlob) await generateShareImage();
-  if (!SS.cardBlob) { window.location.href = 'instagram://story-camera'; return; }
 
-  try {
-    // الطريقة الصحيحة: نسخ الصورة للـ clipboard ثم فتح انستغرام
-    // iOS 16+ يدعم clipboard.write مع images
-    const item = new ClipboardItem({ 'image/png': SS.cardBlob });
-    await navigator.clipboard.write([item]);
-    // فتح انستغرام على شاشة القصة — المستخدم يلصق من الـ clipboard
+  // رسالة تحميل
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#2c3a1e;color:#fff;padding:12px 24px;border-radius:20px;font-family:Cairo,sans-serif;font-size:.9rem;font-weight:700;z-index:99999;';
+  toast.textContent = '⏳ جاري تجهيز الصورة...';
+  document.body.appendChild(toast);
+
+  if (!SS.cardBlob) await generateShareImage();
+
+  if (!SS.cardBlob) {
+    toast.remove();
     window.location.href = 'instagram://story-camera';
     return;
-  } catch(e) {
-    // إذا فشل clipboard — جرّب Web Share API
   }
 
-  // Web Share API مع الملف
-  if (navigator.share) {
-    try {
-      const file = new File([SS.cardBlob], 'webook-post.png', { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Webook 🌿' });
-        return;
-      }
-    } catch(e) { if (e.name === 'AbortError') return; }
-  }
+  toast.textContent = '📥 جاري حفظ الصورة...';
 
-  // آخر حل: حمّل الصورة + افتح انستغرام
+  // خطوة 1: حفظ الصورة على الجهاز
   const blobUrl = URL.createObjectURL(SS.cardBlob);
   const a = document.createElement('a');
-  a.href = blobUrl; a.download = 'webook-post.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  a.href = blobUrl;
+  a.download = 'webook-post.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(blobUrl);
-  setTimeout(() => { window.location.href = 'instagram://story-camera'; }, 1000);
+
+  toast.textContent = '📸 افتح الصورة من الاستوديو في انستغرام';
+  setTimeout(() => toast.remove(), 4000);
+
+  // خطوة 2: فتح انستغرام على شاشة القصة بعد لحظة
+  setTimeout(() => {
+    window.location.href = 'instagram://story-camera';
+  }, 1500);
 }
 
 // ── مشاركة في واتساب ──
