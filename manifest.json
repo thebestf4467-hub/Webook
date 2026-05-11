@@ -1,0 +1,32 @@
+{
+  "name": "Webook",
+  "short_name": "Webook",
+  "description": "تواصل بطريقتك، شارك اللحظات اللي تهمك",
+  "start_url": "/Webook/",
+  "scope": "/Webook/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e8f0e4",
+  "theme_color": "#5c7a4e",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%235c7a4e'/><text x='256' y='340' font-size='280' text-anchor='middle' fill='white' font-family='Arial'>W</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["social", "lifestyle"],
+  "share_target": {
+    "action": "/Webook/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
